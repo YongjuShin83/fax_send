@@ -153,11 +153,12 @@ textarea{min-height:84px;resize:vertical}
           <label class="lb">팩스번호</label>
           <label class="hint" style="display:flex;gap:6px;align-items:center;padding:9px 0"><input id="fFaxOnly" type="checkbox" checked style="width:auto"> 팩스번호 있는 곳만</label>
         </div>
+        <div class="fc" hidden><label class="lb" for="fFq">브랜드·본부명·업종·상품에 포함</label><input id="fFq" placeholder="치킨, 떡, 반찬, 본죽"></div>
+        <div class="fc" hidden><label class="lb" for="fLcls">업종 대분류</label><select id="fLcls"><option value="">전체</option></select></div>
         <div class="fc" hidden><label class="lb" for="fYear">가맹사업 기준년도</label><input id="fYear" inputmode="numeric" maxlength="4" class="mono"></div>
-        <div class="fc" hidden><label class="lb" for="fMnno">가맹본부관리번호</label><input id="fMnno" class="mono" placeholder="비우면 그 해 전체"></div>
         <div class="row"><button class="btn primary" type="submit" id="searchBtn" style="flex:1;justify-content:center">조회</button><button class="btn" type="button" id="resetBtn">초기화</button></div>
         <p class="hint full gn" id="gnNote" style="margin:0"></p>
-        <p class="hint full fc" hidden style="margin:0">공정거래위원회 가맹정보의 가맹본부 일반정보 변경이력입니다. 같은 본부가 이력 건수만큼 여러 줄 나올 수 있고, 이 API는 상호·지역으로 검색하는 기능이 없어 관리번호로 찾거나 그 해 전체를 넘겨 보며 찾습니다.</p>
+        <p class="hint full fc" hidden style="margin:0"><span id="fcNote"></span> 공정거래위원회 가맹정보입니다. 브랜드 목록으로 가맹본부를 찾고, 화면에 보이는 본부마다 일반정보 최신 이력에서 전화·팩스·주소를 가져옵니다. 한 쪽에 몇 초 걸릴 수 있습니다.</p>
         <div id="err" class="err full" hidden></div>
       </form>
 
@@ -271,7 +272,7 @@ async function api(p){
   return j;
 }
 function params(page){
-  if(state.type==='fc') return { op:'fc', year:$('fYear').value.trim(), mnno:$('fMnno').value.trim(), pageNo:page, numOfRows:$('perPage').value };
+  if(state.type==='fc') return { op:'fc', year:$('fYear').value.trim(), q:$('fFq').value, lcls:$('fLcls').value, pageNo:page, numOfRows:$('perPage').value };
   return { op:'gn', src:state.type, q:$('fQ').value, addr:$('fAddr').value, sgg:$('fSgg').value, fax:$('fFaxOnly').checked?'1':'', pageNo:page, numOfRows:$('perPage').value };
 }
 function fillSgg(list){
@@ -285,7 +286,10 @@ async function search(page=1){
     const p=params(page); const j=await api(p);
     if(type!==state.type) return;
     Object.assign(state,{page, total:j.totalCount||0, items:j.items||[], last:p});
-    if(type!=='fc'){
+    if(type==='fc'){
+      if(j.lcls && $('fLcls').options.length<=1) $('fLcls').innerHTML=opt('','전체')+j.lcls.map(x=>opt(x.name,`${x.name} (${x.n.toLocaleString()})`)).join('');
+      $('fcNote').textContent=`${$('fYear').value}년 가맹본부 ${Number(j.all||0).toLocaleString()}곳.`;
+    } else {
       if(j.sggs && $('fSgg').options.length<=1) fillSgg(j.sggs);
       $('gnNote').textContent=`${TYPE_NAME[type]} 전체 ${Number(j.all||0).toLocaleString()}곳 중 팩스번호가 있는 곳 ${Number(j.withFax||0).toLocaleString()}곳. 경상남도가 실시간 제공하는 자료를 서버가 받아 두고 6시간마다 새로 받습니다.`;
     }
@@ -296,8 +300,8 @@ async function search(page=1){
 }
 const HEAD={
   mfr:['','회사명','업종','주요생산품','시군','전화번호','팩스번호','주소'],
-  senior:['','기관명','시군구','대표자','전화번호','팩스번호','주소'],
-  fc:['','상호','대표자','지역','전화번호','팩스번호','주소','이력'],
+  senior:['','기관명','시군구','운영·대표','전화번호','팩스번호','주소'],
+  fc:['','가맹본부','브랜드','업종','대표자','지역','전화번호','팩스번호','주소'],
 };
 function renderHead(){ const h=HEAD[state.type]; $('thead').innerHTML='<tr>'+h.map(x=>`<th>${x}</th>`).join('')+'</tr>'; return h.length; }
 const telTd=v=>`<td class="mono">${esc(v)}</td>`;
@@ -311,7 +315,7 @@ function renderRows(errMsg){
   $('rows').innerHTML=state.items.map((it,i)=>`<tr data-i="${i}">${star(it)}<td class="nm">${esc(it.BPLC_NM)}</td>`+(
     state.type==='mfr' ? `<td>${esc(it.INDUTY)}</td><td>${esc(it.GOODS)}</td><td class="nowrap">${esc(it.SGG)}</td>${telTd(it.TELNO)}${telTd(it.FAXNO)}<td class="addr">${esc(addrOf(it))}</td>`
     : state.type==='senior' ? `<td class="nowrap">${esc(it.SGG)}</td><td class="nowrap">${esc(it.REP)}</td>${telTd(it.TELNO)}${telTd(it.FAXNO)}<td class="addr">${esc(addrOf(it))}</td>`
-    : `<td class="nowrap">${esc(it.REP)}</td><td class="nowrap">${esc(it.SGG)}</td>${telTd(it.TELNO)}${telTd(it.FAXNO)}<td class="addr">${esc(addrOf(it))}</td><td class="mono">${esc(it.HIST)}</td>`
+    : `<td>${esc(it.BRANDS)}</td><td>${esc(it.INDUTY)}</td><td class="nowrap">${esc(it.REP)}</td><td class="nowrap">${esc(it.SGG)}</td>${telTd(it.TELNO)}${telTd(it.FAXNO)}<td class="addr">${esc(addrOf(it))}</td>`
   )+'</tr>').join('');
   const pages=Math.ceil(state.total/+$('perPage').value);
   $('pager').innerHTML=pages>1?`<button class="btn" type="button" data-go="${state.page-1}" ${state.page<=1?'disabled':''}>이전</button>
@@ -408,11 +412,10 @@ const stamp=()=>iso(new Date());
 // 지금 조건의 전체 결과 (경남: 서버에서 한 번에 / 가맹본부: 페이지를 넘겨 최대 2000건)
 async function fetchAll(b,label){
   if(!state.last) throw new Error('먼저 조회하세요');
-  if(state.type!=='fc') return (await api({...state.last,all:'1'})).items;
-  const max=Math.min(state.total,2000), pages=Math.ceil(max/100), all=[];
-  for(let p=1;p<=pages;p++){ b.textContent=`${label} ${p}/${pages}`; all.push(...(await api({...state.last,pageNo:p,numOfRows:100})).items); }
-  if(state.total>max) toast(`앞 ${max.toLocaleString()}건만 받았습니다`);
-  return all;
+  if(state.type==='fc') b.textContent=`본부 연락처 확인 중 (최대 500곳, 1분쯤)…`;
+  const j=await api({...state.last,all:'1'});
+  if(j.cut) toast(`${j.cut.toLocaleString()}곳 중 앞 500곳만 받았습니다. 검색어·업종으로 좁혀 보세요`);
+  return j.items;
 }
 $('exportPageBtn').onclick=()=> state.items.length ? save(`${TYPE_NAME[state.type]}_${stamp()}_${state.page}쪽.csv`, csv(state.items)) : toast('먼저 조회하세요');
 $('exportAllBtn').onclick=async()=>{
@@ -445,7 +448,7 @@ function setType(t){
   document.querySelectorAll('.fc').forEach(e=>e.hidden=!fc);
   $('fQLabel').textContent=t==='mfr'?'이름·업종·생산품에 포함':'기관명·대표자에 포함';
   $('fQ').placeholder=t==='mfr'?'식품, 참기름, 기계':'요양원, 주야간보호';
-  $('fSgg').innerHTML=opt('','전체'); $('gnNote').textContent='';
+  $('fSgg').innerHTML=opt('','전체'); $('fLcls').innerHTML=opt('','전체'); $('gnNote').textContent=''; $('fcNote').textContent='';
   Object.assign(state,{page:1,total:0,items:[],last:null});
   try{ localStorage.setItem('fbf_type',t); }catch(e){}
 }
@@ -459,9 +462,9 @@ $('tabSearch').onclick=()=>showTab('search'); $('tabLeads').onclick=()=>showTab(
 document.querySelectorAll('#typeSeg button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#typeSeg button').forEach(x=>x.classList.toggle('on',x===b)); setType(b.dataset.v); search(1);
 });
-$('fSgg').onchange=()=>search(1); $('fFaxOnly').onchange=()=>search(1);
+$('fSgg').onchange=()=>search(1); $('fLcls').onchange=()=>search(1); $('fYear').onchange=()=>{ $('fLcls').innerHTML=opt('','전체'); search(1); }; $('fFaxOnly').onchange=()=>search(1);
 $('filterForm').onsubmit=e=>{ e.preventDefault(); search(1); };
-$('resetBtn').onclick=()=>{ ['fQ','fAddr','fMnno'].forEach(i=>$(i).value=''); $('fSgg').value=''; $('fFaxOnly').checked=true; $('fYear').value=new Date().getFullYear()-1; search(1); };
+$('resetBtn').onclick=()=>{ ['fQ','fAddr','fFq'].forEach(i=>$(i).value=''); $('fSgg').value=''; $('fLcls').value=''; $('fFaxOnly').checked=true; $('fYear').value=new Date().getFullYear()-1; search(1); };
 $('perPage').onchange=()=>search(1);
 $('rows').onclick=e=>{ const tr=e.target.closest('tr[data-i]'); if(tr) openDrawer(state.items[+tr.dataset.i],state.type); };
 $('pager').onclick=e=>{ const b=e.target.closest('[data-go]'); if(b&&!b.disabled) search(+b.dataset.go); };
