@@ -252,7 +252,9 @@ const TYPE_NAME = { mfr:'경남 제조업체', senior:'경남 노인복지시설
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const addrOf = it => it.ROAD_NM_ADDR || '';
-const hasFax = it => String(it.FAXNO||'').replace(/\D/g,'').length >= 8;
+// 0000…·1111… 같은 자리채움 번호는 없는 번호로 봄
+const realTel = v => { const d=String(v||'').replace(/\D/g,''); return d.length>=8 && d.length<=12 && /^0[1-9]/.test(d) && !/^(\d)\1+$/.test(d.slice(1)) ? String(v).trim() : ''; };
+const hasFax = it => !!realTel(it.FAXNO);
 const state = { type:'mfr', page:1, total:0, items:[], last:null };
 let leads = {};          // MNG_NO -> lead doc
 let db = null, downloads = null;
@@ -304,7 +306,7 @@ const HEAD={
   fc:['','가맹본부','브랜드','업종','대표자','지역','전화번호','팩스번호','주소'],
 };
 function renderHead(){ const h=HEAD[state.type]; $('thead').innerHTML='<tr>'+h.map(x=>`<th>${x}</th>`).join('')+'</tr>'; return h.length; }
-const telTd=v=>`<td class="mono">${esc(v)}</td>`;
+const telTd=v=>`<td class="mono">${esc(realTel(v))}</td>`;
 function renderRows(errMsg){
   const nc=renderHead();
   $('total').textContent=state.total.toLocaleString();
