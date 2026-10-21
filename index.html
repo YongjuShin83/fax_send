@@ -303,9 +303,10 @@ async function search(page=1){
 const HEAD={
   mfr:['','회사명','업종','주요생산품','시군','전화번호','팩스번호','주소'],
   senior:['','기관명','시군구','운영·대표','전화번호','팩스번호','주소'],
-  fc:['','가맹본부','브랜드','업종','대표자','지역','전화번호','팩스번호','주소'],
+  fc:['','가맹본부','지역','주소','전화번호','팩스번호','브랜드','업종','대표자'],
 };
 function renderHead(){ const h=HEAD[state.type]; $('thead').innerHTML='<tr>'+h.map(x=>`<th>${x}</th>`).join('')+'</tr>'; return h.length; }
+const short=(v,n=3)=>{ const a=String(v||'').split(', ').filter(Boolean); return a.length>n?a.slice(0,n).join(', ')+` 외 ${a.length-n}`:a.join(', '); };
 const telTd=v=>`<td class="mono">${esc(realTel(v))}</td>`;
 function renderRows(errMsg){
   const nc=renderHead();
@@ -317,7 +318,7 @@ function renderRows(errMsg){
   $('rows').innerHTML=state.items.map((it,i)=>`<tr data-i="${i}">${star(it)}<td class="nm">${esc(it.BPLC_NM)}</td>`+(
     state.type==='mfr' ? `<td>${esc(it.INDUTY)}</td><td>${esc(it.GOODS)}</td><td class="nowrap">${esc(it.SGG)}</td>${telTd(it.TELNO)}${telTd(it.FAXNO)}<td class="addr">${esc(addrOf(it))}</td>`
     : state.type==='senior' ? `<td class="nowrap">${esc(it.SGG)}</td><td class="nowrap">${esc(it.REP)}</td>${telTd(it.TELNO)}${telTd(it.FAXNO)}<td class="addr">${esc(addrOf(it))}</td>`
-    : `<td>${esc(it.BRANDS)}</td><td>${esc(it.INDUTY)}</td><td class="nowrap">${esc(it.REP)}</td><td class="nowrap">${esc(it.SGG)}</td>${telTd(it.TELNO)}${telTd(it.FAXNO)}<td class="addr">${esc(addrOf(it))}</td>`
+    : `<td class="nowrap">${esc(it.SGG)}</td><td class="addr">${esc(addrOf(it))}</td>${telTd(it.TELNO)}${telTd(it.FAXNO)}<td>${esc(short(it.BRANDS))}</td><td>${esc(it.INDUTY)}</td><td class="nowrap">${esc(it.REP)}</td>`
   )+'</tr>').join('');
   const pages=Math.ceil(state.total/+$('perPage').value);
   $('pager').innerHTML=pages>1?`<button class="btn" type="button" data-go="${state.page-1}" ${state.page<=1?'disabled':''}>이전</button>
