@@ -48,6 +48,12 @@ async function portal(url: string, label: string): Promise<{ total: number; item
     }
     throw new ApiError(`${label} 응답을 해석하지 못했습니다. ${msg}`.trim(), 'PARSE');
   }
+  // 게이트웨이 인증 오류가 JSON으로 올 때 (OpenAPI_ServiceResponse.cmmMsgHeader)
+  const gw = s(find(data, 'errMsg')) + ' ' + s(find(data, 'returnAuthMsg'));
+  if (find(data, 'returnReasonCode') !== undefined || /SERVICE_KEY|등록되지 않은/.test(gw)) {
+    if (/SERVICE_KEY|등록되지 않은|NOT_REGISTERED/.test(gw)) throw new ApiError(`${label} 활용신청이 아직 승인되지 않았거나 인증키가 등록되지 않았습니다. 승인 후 1~2시간 뒤 다시 시도하세요.`, 'KEY');
+    throw new ApiError(`${label} 오류: ${gw.trim()}`, s(find(data, 'returnReasonCode')));
+  }
   // 기관마다 감싸는 키가 달라서(response / 서비스명 / 바로 header·body) 이름으로 찾아 들어감
   const header = find(data, 'header') ?? {};
   const code = s(header.resultCode ?? find(data, 'resultCode'));
@@ -161,7 +167,7 @@ async function pagesOf(base: string, params: [string, string][], label: string, 
 }
 
 async function fcLoad(key: string) {
-  if (fcCache && Date.now() - fcCache.at < FC_TTL) return fcCache;
+  if (fcCache && Date.now() - fcCache.at < (fcCache.dtl ? FC_TTL : 10 * 60_000)) return fcCache;   // 상세 API 승인 전이면 10분마다 다시 확인
   if (fcLoading) return fcLoading;
   fcLoading = (async () => {
     const years = fcYears();   // [올해, 작년] — 앞쪽이 최신
