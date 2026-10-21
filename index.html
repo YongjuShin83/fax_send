@@ -115,8 +115,8 @@ textarea{min-height:84px;resize:vertical}
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>식품업체 영업 레이더 <span style="color:var(--accent)">· 팩스</span></h1>
-      <div class="sub">즉석판매제조가공업 · 식품판매업(기타) 인허가 현황(행정안전부, 매일 갱신) · 일반 상가(소상공인시장진흥공단 상권정보, 분기 갱신) · 팩스 발송(팝빌)</div>
+      <h1>영업 레이더 <span style="color:var(--accent)">· 팩스</span></h1>
+      <div class="sub">경상남도 제조업체 · 경상남도 노인복지시설(경상남도, 실시간) · 가맹본부 일반정보 변경이력(공정거래위원회) · 팩스 발송(팝빌)</div>
     </div>
     <nav class="tabs" aria-label="화면">
       <button id="tabSearch" class="on" type="button">업체 조회</button>
@@ -138,58 +138,26 @@ textarea{min-height:84px;resize:vertical}
   <section id="searchView">
     <div class="layout">
       <form class="filters" id="filterForm">
-        <div>
-          <label class="lb">업종</label>
+        <div class="full">
+          <label class="lb">자료</label>
           <div class="seg" id="typeSeg">
-            <button type="button" data-v="instant" class="on">즉석판매<br>제조가공업</button>
-            <button type="button" data-v="retail">식품판매업<br>(기타)</button>
-            <button type="button" data-v="store">일반 상가<br>(상권정보)</button>
+            <button type="button" data-v="mfr" class="on">경남<br>제조업체</button>
+            <button type="button" data-v="senior">경남<br>노인복지시설</button>
+            <button type="button" data-v="fc">가맹본부<br>(공정위)</button>
           </div>
         </div>
-        <div><label class="lb" for="fName">사업장명에 포함</label><input id="fName" placeholder="방앗간, 참기름, 떡"></div>
-        <div><label class="lb" for="fAddr">주소에 포함</label><input id="fAddr" placeholder="창원시 마산회원구"></div>
-        <div class="lic">
-          <label class="lb">영업상태</label>
-          <input type="hidden" id="fStatus" value="01">
-          <div class="pill p-ok" style="padding:9px 12px;border-radius:8px;display:block;font-weight:500">영업중인 업체만 (폐업 제외)</div>
+        <div class="gn"><label class="lb" for="fQ" id="fQLabel">이름·업종·생산품에 포함</label><input id="fQ" placeholder="식품, 참기름, 기계"></div>
+        <div class="gn"><label class="lb" for="fAddr">주소에 포함</label><input id="fAddr" placeholder="마산회원구, 진주"></div>
+        <div class="gn"><label class="lb" for="fSgg">시·군</label><select id="fSgg"><option value="">전체</option></select></div>
+        <div class="gn">
+          <label class="lb">팩스번호</label>
+          <label class="hint" style="display:flex;gap:6px;align-items:center;padding:9px 0"><input id="fFaxOnly" type="checkbox" checked style="width:auto"> 팩스번호 있는 곳만</label>
         </div>
-        <div class="lic">
-          <label class="lb">인허가일</label>
-          <div class="chips" id="quick">
-            <button type="button" class="chip" data-d="7">7일</button>
-            <button type="button" class="chip on" data-d="30">30일</button>
-            <button type="button" class="chip" data-d="90">3개월</button>
-            <button type="button" class="chip" data-d="365">1년</button>
-            <button type="button" class="chip" data-d="0">전체</button>
-          </div>
-          <div class="two" style="margin-top:8px">
-            <input id="fFrom" type="date" aria-label="인허가일 시작">
-            <input id="fTo" type="date" aria-label="인허가일 끝(포함)">
-          </div>
-        </div>
-        <div class="lic">
-          <label class="lb" for="fAreaMin">매장면적 (㎡)</label>
-          <div class="two"><input id="fAreaMin" type="number" min="0" step="1" inputmode="decimal" placeholder="이상" aria-label="매장면적 최소"><input id="fAreaMax" type="number" min="0" step="1" inputmode="decimal" placeholder="이하" aria-label="매장면적 최대"></div>
-        </div>
-        <div class="lic"><label class="lb" for="fRegion">개방자치단체코드</label><input id="fRegion" inputmode="numeric" maxlength="7" placeholder="7자리 (선택)" class="mono"></div>
-        <div class="sto full" hidden>
-          <label class="lb">골목공구 영업대상</label>
-          <div class="chips" id="presetChips">
-            <button type="button" class="chip" data-p="p1">1순위 · 식료품 소매 7종</button>
-            <button type="button" class="chip" data-p="p2">2순위 · 예약·포장 음식점 5종</button>
-            <button type="button" class="chip" data-p="">업종 직접 선택</button>
-          </div>
-          <p class="hint" id="presetNote" style="margin:6px 0 0"></p>
-        </div>
-        <div class="sto up" hidden><label class="lb" for="sL">업종 대분류</label><select id="sL"><option value="">불러오는 중…</option></select></div>
-        <div class="sto up" hidden><label class="lb" for="sM">업종 중분류</label><select id="sM"><option value="">대분류를 먼저 고르세요</option></select></div>
-        <div class="sto up" hidden><label class="lb" for="sS">업종 소분류</label><select id="sS"><option value="">전체</option></select></div>
-        <div class="sto" hidden><label class="lb" for="sSido">시·도</label><select id="sSido"><option value="">불러오는 중…</option></select></div>
-        <div class="sto" hidden><label class="lb" for="sSigungu">시·군·구</label><select id="sSigungu"><option value="">시·도를 먼저 고르세요</option></select></div>
-        <div class="sto" hidden><label class="lb" for="sDong">행정동</label><select id="sDong"><option value="">전체</option></select></div>
+        <div class="fc" hidden><label class="lb" for="fYear">가맹사업 기준년도</label><input id="fYear" inputmode="numeric" maxlength="4" class="mono"></div>
+        <div class="fc" hidden><label class="lb" for="fMnno">가맹본부관리번호</label><input id="fMnno" class="mono" placeholder="비우면 그 해 전체"></div>
         <div class="row"><button class="btn primary" type="submit" id="searchBtn" style="flex:1;justify-content:center">조회</button><button class="btn" type="button" id="resetBtn">초기화</button></div>
-        <p class="hint full lic" style="margin:0">주소 검색은 도로명주소 기준입니다. 지번주소만 있는 업체까지 빠짐없이 보려면 자치단체코드로 찾으세요.</p>
-        <p class="hint full sto" hidden style="margin:0">영업신고 대상이 아닌 일반 소매점(과일가게 등)까지 담긴 상가 데이터입니다. 분기마다 갱신되어 최근 개업·폐업이 늦게 반영되고, 전화번호는 없어서 상세창의 지도 링크로 확인하세요.</p>
+        <p class="hint full gn" id="gnNote" style="margin:0"></p>
+        <p class="hint full fc" hidden style="margin:0">공정거래위원회 가맹정보의 가맹본부 일반정보 변경이력입니다. 같은 본부가 이력 건수만큼 여러 줄 나올 수 있고, 이 API는 상호·지역으로 검색하는 기능이 없어 관리번호로 찾거나 그 해 전체를 넘겨 보며 찾습니다.</p>
         <div id="err" class="err full" hidden></div>
       </form>
 
@@ -199,6 +167,7 @@ textarea{min-height:84px;resize:vertical}
           <span class="what" id="totalWhat">건</span>
           <div class="act">
             <select id="perPage" aria-label="페이지당 건수"><option value="20">20개씩</option><option value="50" selected>50개씩</option><option value="100">100개씩</option></select>
+            <button class="btn" type="button" id="toFaxBtn">결과를 팩스 수신처로</button>
             <button class="btn" type="button" id="exportPageBtn">이 페이지 CSV</button>
             <button class="btn" type="button" id="exportAllBtn">전체 CSV</button>
           </div>
@@ -220,7 +189,6 @@ textarea{min-height:84px;resize:vertical}
       <select id="leadFilter" aria-label="영업 단계"><option value="">모든 단계</option></select>
       <input id="leadSearch" placeholder="업체명·메모 검색" style="max-width:240px">
       <span class="sp"></span>
-      <button class="btn" type="button" id="recheckBtn">영업상태 다시 확인</button>
       <button class="btn" type="button" id="leadsToFaxBtn">보이는 업체를 팩스 수신처로</button>
       <button class="btn" type="button" id="exportLeadsBtn">관심업체 CSV</button>
     </div>
@@ -279,30 +247,20 @@ textarea{min-height:84px;resize:vertical}
 <script>
 const API = 'https://qxbhsmgtbbcvuwiecenv.supabase.co/functions/v1/fax-send';
 const STAGES = ['미접촉','연락함','관심있음','입점협의','입점완료','보류'];
-const TYPE_NAME = { instant:'즉석판매제조가공업', retail:'식품판매업(기타)', store:'일반 상가(상권정보)' };
+const TYPE_NAME = { mfr:'경남 제조업체', senior:'경남 노인복지시설', fc:'가맹본부(공정위)' };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const addrOf = it => it.ROAD_NM_ADDR || it.LOTNO_ADDR || '';
-const d10 = s => (s || '').slice(0, 10);
-const state = { type:'instant', page:1, total:0, items:[], last:null, quick:30 };
+const addrOf = it => it.ROAD_NM_ADDR || '';
+const hasFax = it => String(it.FAXNO||'').replace(/\D/g,'').length >= 8;
+const state = { type:'mfr', page:1, total:0, items:[], last:null };
 let leads = {};          // MNG_NO -> lead doc
 let db = null, downloads = null;
 let PW = '';
 try { PW = localStorage.getItem('fbf_pw') || ''; } catch(e) {}
 
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast.h); toast.h=setTimeout(()=>t.hidden=true,2400); }
-function pill(it){
-  const c=it.SALS_STTS_CD, n=it.DTL_SALS_STTS_NM||it.SALS_STTS_NM||'-';
-  return `<span class="pill ${c==='01'?'p-ok':c==='02'?'p-warn':'p-bad'}">${esc(n)}</span>`;
-}
+function pill(it){ return hasFax(it) ? '<span class="pill p-ok">팩스 있음</span>' : '<span class="pill p-warn">팩스 없음</span>'; }
 const iso = d => new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
-function setQuick(days){
-  state.quick = days;
-  document.querySelectorAll('#quick .chip').forEach(c=>c.classList.toggle('on', +c.dataset.d===days));
-  if(!days){ $('fFrom').value=''; $('fTo').value=''; return; }
-  const from=new Date(); from.setDate(from.getDate()-days);
-  $('fFrom').value=iso(from); $('fTo').value=iso(new Date());
-}
 
 // ---------- API ----------
 async function api(p){
@@ -313,92 +271,48 @@ async function api(p){
   return j;
 }
 function params(page){
-  let to = $('fTo').value;
-  if(to){ const d=new Date(to); d.setDate(d.getDate()+1); to=iso(d); }  // 끝 날짜 포함
-  return { type:state.type, pageNo:page, numOfRows:$('perPage').value, name:$('fName').value, addr:$('fAddr').value,
-           status:$('fStatus').value, from:$('fFrom').value, to, region:$('fRegion').value };
+  if(state.type==='fc') return { op:'fc', year:$('fYear').value.trim(), mnno:$('fMnno').value.trim(), pageNo:page, numOfRows:$('perPage').value };
+  return { op:'gn', src:state.type, q:$('fQ').value, addr:$('fAddr').value, sgg:$('fSgg').value, fax:$('fFaxOnly').checked?'1':'', pageNo:page, numOfRows:$('perPage').value };
 }
-const AREA_SCAN_MAX=3000; // 면적 조건이 있을 때 훑어보는 최대 건수
-function areaRange(){
-  const lo=parseFloat($('fAreaMin').value), hi=parseFloat($('fAreaMax').value);
-  return (isNaN(lo)&&isNaN(hi)) ? null : { lo:isNaN(lo)?-Infinity:lo, hi:isNaN(hi)?Infinity:hi };
-}
-// ---------- 우편번호 (우정사업본부) ----------
-let ZIPS={}; try{ ZIPS=JSON.parse(localStorage.getItem('fbf_zips')||'{}'); }catch(e){}
-let zipBroken=false;
-function zipOf(it){
-  if(ZIPS[it.MNG_NO]!==undefined) return ZIPS[it.MNG_NO];
-  const own=(it.ROAD_NM_ZIP||'').trim(); if(/^\d{5}$/.test(own)) return own;
-  return zipBroken ? '' : null;   // null = 아직 찾는 중
-}
-async function ensureZips(items){
-  const need=items.filter(it=>zipOf(it)===null && addrOf(it));
-  for(let i=0;i<need.length;i+=100){
-    const chunk=need.slice(i,i+100);
-    const r=await fetch(API+'?op=zip',{method:'POST',headers:{'x-access-pw':PW,'content-type':'application/json'},body:JSON.stringify({addrs:chunk.map(addrOf)})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok||!Array.isArray(j.zips)){ zipBroken=true; toast(j.error||'우편번호를 가져오지 못했습니다'); break; }
-    chunk.forEach((it,k)=>{ ZIPS[it.MNG_NO]=j.zips[k]||''; });
-  }
-  items.forEach(it=>{ if(zipOf(it)===null) ZIPS[it.MNG_NO]=''; });
-  try{ const keys=Object.keys(ZIPS); if(keys.length>20000) keys.slice(0,keys.length-20000).forEach(k=>delete ZIPS[k]); localStorage.setItem('fbf_zips',JSON.stringify(ZIPS)); }catch(e){}
+function fillSgg(list){
+  const cur=$('fSgg').value;
+  $('fSgg').innerHTML=opt('','전체')+(list||[]).map(x=>opt(x.name,`${x.name} (${x.n.toLocaleString()})`,x.name===cur)).join('');
 }
 async function search(page=1){
-  const b=$('searchBtn'); b.disabled=true; b.textContent='조회 중…'; $('err').hidden=true;
+  const b=$('searchBtn'); b.disabled=true; b.textContent=state.type==='fc'?'조회 중…':'불러오는 중… (처음엔 10초쯤)'; $('err').hidden=true;
+  const type=state.type;
   try{
-    if(state.type==='store'){ await searchStore(page,b); renderRows(); const sh=state.items; ensureZips(sh).then(()=>{ if(state.items===sh) renderRows(); }); return; }
-    const rg=areaRange();
-    if(!rg){
-      const p=params(page); const j=await api(p);
-      Object.assign(state,{page, total:j.totalCount, items:j.items, last:p, filtered:null, scanNote:''});
-    } else {
-      const per=+$('perPage').value;
-      const key=JSON.stringify({...params(1),numOfRows:100,rg:[rg.lo,rg.hi]});
-      if(page===1 || state.filterKey!==key){
-        const base={...params(1),numOfRows:100}; const hits=[]; let raw=0, total=Infinity;
-        for(let pn=1; raw<Math.min(total,AREA_SCAN_MAX); pn++){
-          b.textContent=`면적 확인 중 ${raw.toLocaleString()}건…`;
-          const j=await api({...base,pageNo:pn}); total=j.totalCount; raw+=j.items.length;
-          for(const it of j.items){ const a=parseFloat(it.LCTN_AREA); if(!isNaN(a)&&a>=rg.lo&&a<=rg.hi) hits.push(it); }
-          if(!j.items.length) break;
-        }
-        state.filtered=hits; state.filterKey=key; state.last=base;
-        state.scanNote = total>AREA_SCAN_MAX ? `앞 ${AREA_SCAN_MAX.toLocaleString()}건(전체 ${total.toLocaleString()}건) 중에서 면적 조건에 맞는 업체입니다. 지역·기간을 좁히면 빠짐없이 볼 수 있습니다.` : '';
-      }
-      Object.assign(state,{page, total:state.filtered.length, items:state.filtered.slice((page-1)*per,page*per)});
+    const p=params(page); const j=await api(p);
+    if(type!==state.type) return;
+    Object.assign(state,{page, total:j.totalCount||0, items:j.items||[], last:p});
+    if(type!=='fc'){
+      if(j.sggs && $('fSgg').options.length<=1) fillSgg(j.sggs);
+      $('gnNote').textContent=`${TYPE_NAME[type]} 전체 ${Number(j.all||0).toLocaleString()}곳 중 팩스번호가 있는 곳 ${Number(j.withFax||0).toLocaleString()}곳. 경상남도가 실시간 제공하는 자료를 서버가 받아 두고 6시간마다 새로 받습니다.`;
     }
     renderRows();
-    const shown=state.items; ensureZips(shown).then(()=>{ if(state.items===shown) renderRows(); });
   }catch(e){ if(!$('loginView').hidden) return; $('err').textContent=e.message; $('err').hidden=false;
-    if(!state.items.length) $('rows').innerHTML='<tr><td colspan="8" class="empty">조회하지 못했습니다. 왼쪽 안내를 확인하세요.</td></tr>'; }
+    Object.assign(state,{total:0,items:[],last:null}); renderRows(e.message); }
   finally{ b.disabled=false; b.textContent='조회'; }
 }
-const HEAD={ lic:['','사업장명','상태','인허가일','전화번호','주소','우편번호','매장면적㎡'], store:['','상호','업종','행정동','주소','층','우편번호'] };
-function renderHead(){ const h=HEAD[state.type==='store'?'store':'lic']; $('thead').innerHTML='<tr>'+h.map(x=>`<th>${x}</th>`).join('')+'</tr>'; return h.length; }
-function renderRows(){
+const HEAD={
+  mfr:['','회사명','업종','주요생산품','시군','전화번호','팩스번호','주소'],
+  senior:['','기관명','시군구','대표자','전화번호','팩스번호','주소'],
+  fc:['','상호','대표자','지역','전화번호','팩스번호','주소','이력'],
+};
+function renderHead(){ const h=HEAD[state.type]; $('thead').innerHTML='<tr>'+h.map(x=>`<th>${x}</th>`).join('')+'</tr>'; return h.length; }
+const telTd=v=>`<td class="mono">${esc(v)}</td>`;
+function renderRows(errMsg){
   const nc=renderHead();
   $('total').textContent=state.total.toLocaleString();
-  $('totalWhat').textContent=`건 · ${TYPE_NAME[state.type]}`+(state.type==='store'?(state.storeLabel?' · '+state.storeLabel:''):(areaRange()&&state.filtered?' · 면적 조건 적용':''));
-  $('scanNote').textContent=state.scanNote||''; $('scanNote').hidden=!state.scanNote;
-  if(!state.items.length){ $('rows').innerHTML=`<tr><td colspan="${nc}" class="empty">${state.type==='store'&&!state.storeKey?'업종과 지역을 고른 뒤 조회하세요.':'조건에 맞는 업체가 없습니다. 조건을 넓히거나 검색어를 줄여 보세요.'}</td></tr>`; $('pager').innerHTML=''; return; }
-  const week=iso(new Date(Date.now()-7*864e5));
-  $('rows').innerHTML=state.type==='store' ? state.items.map((it,i)=>`<tr data-i="${i}">
-    <td class="st">${leads[it.MNG_NO]?'★':''}</td>
-    <td class="nm">${esc(it.BPLC_NM)}</td>
-    <td class="nowrap">${esc(it.indsSclsNm)}</td>
-    <td class="nowrap">${esc(it.adongNm)}</td>
-    <td class="addr">${esc(addrOf(it))}${it.bldNm?` <span class="hint">${esc(it.bldNm)}</span>`:''}</td>
-    <td class="mono">${esc(it.flrNo)}</td>
-    <td class="mono">${zipOf(it)===null?'<span class="hint">…</span>':esc(zipOf(it))}</td></tr>`).join('')
-  : state.items.map((it,i)=>`<tr data-i="${i}">
-    <td class="st">${leads[it.MNG_NO]?'★':''}</td>
-    <td class="nm">${esc(it.BPLC_NM)}${d10(it.LCPMT_YMD)>=week?'<span class="new">신규</span>':''}</td>
-    <td>${pill(it)}</td>
-    <td class="mono">${esc(d10(it.LCPMT_YMD))}</td>
-    <td class="mono">${esc(it.TELNO)}</td>
-    <td class="addr">${esc(addrOf(it))}</td>
-    <td class="mono">${zipOf(it)===null?'<span class="hint">…</span>':esc(zipOf(it))}</td>
-    <td class="mono num">${esc(it.LCTN_AREA)}</td></tr>`).join('');
+  $('totalWhat').textContent=`건 · ${TYPE_NAME[state.type]}`+(state.type!=='fc'&&$('fFaxOnly').checked?' · 팩스번호 있는 곳':'');
+  $('scanNote').hidden=true;
+  if(!state.items.length){ $('rows').innerHTML=`<tr><td colspan="${nc}" class="empty">${errMsg?'조회하지 못했습니다. 왼쪽 안내를 확인하세요.':'조건에 맞는 곳이 없습니다. 조건을 넓히거나 검색어를 줄여 보세요.'}</td></tr>`; $('pager').innerHTML=''; return; }
+  const star=it=>`<td class="st">${leads[it.MNG_NO]?'★':''}</td>`;
+  $('rows').innerHTML=state.items.map((it,i)=>`<tr data-i="${i}">${star(it)}<td class="nm">${esc(it.BPLC_NM)}</td>`+(
+    state.type==='mfr' ? `<td>${esc(it.INDUTY)}</td><td>${esc(it.GOODS)}</td><td class="nowrap">${esc(it.SGG)}</td>${telTd(it.TELNO)}${telTd(it.FAXNO)}<td class="addr">${esc(addrOf(it))}</td>`
+    : state.type==='senior' ? `<td class="nowrap">${esc(it.SGG)}</td><td class="nowrap">${esc(it.REP)}</td>${telTd(it.TELNO)}${telTd(it.FAXNO)}<td class="addr">${esc(addrOf(it))}</td>`
+    : `<td class="nowrap">${esc(it.REP)}</td><td class="nowrap">${esc(it.SGG)}</td>${telTd(it.TELNO)}${telTd(it.FAXNO)}<td class="addr">${esc(addrOf(it))}</td><td class="mono">${esc(it.HIST)}</td>`
+  )+'</tr>').join('');
   const pages=Math.ceil(state.total/+$('perPage').value);
   $('pager').innerHTML=pages>1?`<button class="btn" type="button" data-go="${state.page-1}" ${state.page<=1?'disabled':''}>이전</button>
     <span class="mono">${state.page} / ${pages.toLocaleString()}</span>
@@ -406,29 +320,24 @@ function renderRows(){
 }
 
 // ---------- drawer ----------
-const FIELDS=[['BZSTAT_SE_NM','업태'],['SALS_STTS_NM','영업상태'],['LCPMT_YMD','인허가일'],['CLSBIZ_YMD','폐업일'],['ROAD_NM_ADDR','도로명주소'],
-  ['LOTNO_ADDR','지번주소'],['TELNO','전화번호'],['LCTN_AREA','면적(㎡)'],['BLDG_PSN_SE_NM','건물소유'],['HPG','홈페이지'],['MNG_NO','관리번호'],['OPN_ATMY_GRP_CD','자치단체코드'],['LAST_MDFCN_PNT','최종수정']];
-const SFIELDS=[['indsMclsNm','업종(중분류)'],['indsSclsNm','업종(소분류)'],['ksicNm','표준산업분류'],['ROAD_NM_ADDR','도로명주소'],['LOTNO_ADDR','지번주소'],
-  ['bldNm','건물명'],['flrNo','층'],['hoNo','호'],['adongNm','행정동'],['ldongNm','법정동'],['MNG_NO','상가업소번호']];
 let cur=null; // {item,type}
 function openDrawer(item,type){
   cur={item,type}; const L=leads[item.MNG_NO];
-  const F=type==='store'?SFIELDS:FIELDS;
   const mapQ=encodeURIComponent(item.BPLC_NM+' '+addrOf(item).split(' ').slice(0,3).join(' '));
+  const rows=(item.detail||[]).filter(([,v])=>v);
   $('drawer').innerHTML=`
     <div class="dhead"><span class="pill p-stage">${esc(TYPE_NAME[type])}</span><button class="btn" type="button" data-close>닫기</button></div>
     <h2>${esc(item.BPLC_NM)}</h2><div>${pill(item)}</div>
-    <dl>${zipOf(item)?`<dt>우편번호</dt><dd class="mono">${esc(zipOf(item))}</dd>`:''}${F.filter(([k])=>item[k]).map(([k,n])=>`<dt>${n}</dt><dd class="${/YMD|NO|CD|PNT|TELNO|AREA/.test(k)?'mono':''}">${esc(k.endsWith('_YMD')?d10(item[k]):item[k])}</dd>`).join('')}</dl>
+    <dl>${rows.map(([n,v])=>`<dt>${esc(n)}</dt><dd class="${/번호|일$|위도/.test(n)?'mono':''}">${n==='홈페이지'&&/^https?:\/\//.test(v)?`<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a>`:esc(v)}</dd>`).join('')}</dl>
     <div class="row">
       <a class="btn" href="https://map.naver.com/p/search/${mapQ}" target="_blank" rel="noopener">네이버 지도</a>
       <a class="btn" href="https://search.naver.com/search.naver?query=${mapQ}" target="_blank" rel="noopener">네이버 검색</a>
-      <a class="btn" href="https://map.kakao.com/?q=${mapQ}" target="_blank" rel="noopener">카카오맵</a>
       ${item.TELNO?`<button class="btn" type="button" data-copy="${esc(item.TELNO)}">전화번호 복사</button>`:''}
-      <button class="btn" type="button" data-fax>팩스 수신처에 추가</button>
+      ${hasFax(item)?'<button class="btn primary" type="button" data-fax>팩스 수신처에 추가</button>':''}
     </div>
     <div class="sect">
       <h3>영업 관리</h3>
-      ${!db?'<p class="hint" style="margin:0">관심업체 저장은 claude.ai에 로그인한 상태에서 열어야 쓸 수 있습니다.</p>'
+      ${!db?'<p class="hint" style="margin:0">관심업체 저장을 쓸 수 없는 브라우저입니다.</p>'
        : L?`<div><label class="lb" for="dStage">영업 단계</label><select id="dStage">${STAGES.map(s=>`<option ${L.stage===s?'selected':''}>${s}</option>`).join('')}</select></div>
         <div><label class="lb" for="dMemo">메모</label><textarea id="dMemo" placeholder="통화 내용, 담당자, 주력 상품, 다음 연락일">${esc(L.memo||'')}</textarea></div>
         <div class="row"><button class="btn primary" type="button" data-save>저장</button><button class="btn" type="button" data-remove>관심업체에서 빼기</button></div>
@@ -443,7 +352,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && cur) closeDrawer
 $('drawer').addEventListener('click', async e=>{
   const t=e.target.closest('button'); if(!t) return;
   if(t.hasAttribute('data-close')) return closeDrawer();
-  if(t.hasAttribute('data-fax')){ addRcv([{num:cur.item.FAXNO||cur.item.TELNO||'',name:cur.item.BPLC_NM}]); return; }
+  if(t.hasAttribute('data-fax')){ addRcv([{num:cur.item.FAXNO,name:cur.item.BPLC_NM}]); return; }
   if(t.dataset.copy){ try{ await navigator.clipboard.writeText(t.dataset.copy); toast('전화번호를 복사했습니다'); }catch(_){ toast(t.dataset.copy); } return; }
   const k=cur.item.MNG_NO;
   try{
@@ -463,46 +372,32 @@ $('drawer').addEventListener('click', async e=>{
 
 // ---------- leads view ----------
 function renderAll(){ if(state.items.length) renderRows(); renderLeads(); $('leadCount').textContent=Object.keys(leads).length; }
+function leadsShown(){
+  const f=$('leadFilter').value, q=$('leadSearch').value.trim();
+  return Object.entries(leads).filter(([,v])=>TYPE_NAME[v.type]&&(!f||v.stage===f)&&(!q||(v.item.BPLC_NM+' '+(v.memo||'')).includes(q)));
+}
 function renderLeads(){
   const f=$('leadFilter').value, q=$('leadSearch').value.trim();
-  const arr=Object.entries(leads).filter(([,v])=>(!f||v.stage===f)&&(!q||(v.item.BPLC_NM+' '+(v.memo||'')).includes(q)))
-    .sort((a,b)=>String(b[1].updatedAt||'').localeCompare(String(a[1].updatedAt||'')));
+  const arr=leadsShown().sort((a,b)=>String(b[1].updatedAt||'').localeCompare(String(a[1].updatedAt||'')));
   $('leadNote').textContent = db ? `${arr.length}곳 · 이 브라우저에 저장됩니다. 다른 기기로 옮기거나 백업하려면 CSV로 내려받으세요.` : '';
   $('leadList').innerHTML=arr.length?arr.map(([k,v])=>`<button type="button" class="lead" data-k="${esc(k)}">
       <div class="t"><h3>${esc(v.item.BPLC_NM)}</h3><span class="pill p-stage">${esc(v.stage)}</span></div>
       <div class="hint">${esc(TYPE_NAME[v.type])} · ${esc(addrOf(v.item))}</div>
-      <div class="row">${pill(v.item)}${v.item.TELNO?`<span class="mono">${esc(v.item.TELNO)}</span>`:''}</div>
+      <div class="row">${pill(v.item)}${v.item.FAXNO?`<span class="mono">팩스 ${esc(v.item.FAXNO)}</span>`:v.item.TELNO?`<span class="mono">${esc(v.item.TELNO)}</span>`:''}</div>
       ${v.memo?`<div class="memo">${esc(v.memo)}</div>`:''}</button>`).join('')
     : `<div class="empty" style="grid-column:1/-1">${f||q?'조건에 맞는 관심업체가 없습니다.':'아직 저장한 업체가 없습니다. 업체 조회에서 업체를 눌러 ★ 관심업체로 저장하세요.'}</div>`;
 }
 $('leadList').addEventListener('click',e=>{ const b=e.target.closest('.lead'); if(b){ const v=leads[b.dataset.k]; openDrawer(v.item,v.type); } });
 $('leadFilter').innerHTML+=STAGES.map(s=>`<option>${s}</option>`).join('');
 $('leadFilter').onchange=renderLeads; $('leadSearch').oninput=renderLeads;
-$('recheckBtn').onclick=async()=>{
-  const keys=Object.keys(leads); if(!keys.length||!db) return;
-  const b=$('recheckBtn'); b.disabled=true; let changed=0, done=0;
-  for(const k of keys){
-    const v=leads[k]; b.textContent=`확인 중 ${++done}/${keys.length}`;
-    if(v.type==='store') continue;  // 상권정보는 인허가 영업상태가 없음
-    try{
-      const j=await api({type:v.type,pageNo:1,numOfRows:30,name:v.item.BPLC_NM,status:''});
-      const hit=j.items.find(x=>x.MNG_NO===k);
-      if(hit && JSON.stringify(hit)!==JSON.stringify(v.item)){
-        if(hit.SALS_STTS_CD!==v.item.SALS_STTS_CD) changed++;
-        await db.collection('leads').doc(k).update({item:hit, checkedAt:new Date().toISOString()});
-      }
-    }catch(e){ toast(e.message); break; }
-  }
-  b.disabled=false; b.textContent='영업상태 다시 확인';
-  toast(`${keys.length}곳 확인 · 영업상태가 바뀐 곳 ${changed}곳`);
-};
 
 // ---------- CSV ----------
-const COLS=[['BPLC_NM','사업장명'],['SALS_STTS_NM','상태'],['LCPMT_YMD','인허가일'],['TELNO','전화번호'],['_addr','주소'],['_zip','우편번호'],['LCTN_AREA','매장면적(㎡)']];
-const SCOLS=[['BPLC_NM','상호'],['indsSclsNm','업종'],['adongNm','행정동'],['_addr','주소'],['bldNm','건물명'],['flrNo','층'],['_zip','우편번호'],['MNG_NO','상가업소번호']];
-function csv(rows,extra=[],base=COLS){
-  const cols=base.concat(extra), q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-  return '﻿'+[cols.map(c=>q(c[1])).join(',')].concat(rows.map(r=>cols.map(c=>q(c[0]==='_addr'?addrOf(r):c[0]==='_zip'?(zipOf(r)||''):r[c[0]])).join(','))).join('\r\n');
+function csv(rows,extra=[]){
+  const labels=[]; rows.forEach(r=>(r.detail||[]).forEach(([n])=>{ if(!labels.includes(n)) labels.push(n); }));
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const head=['이름',...labels,...extra.map(c=>c[1])];
+  return '﻿'+[head.map(q).join(',')].concat(rows.map(r=>{ const d=Object.fromEntries(r.detail||[]);
+    return [r.BPLC_NM,...labels.map(n=>d[n]),...extra.map(c=>r[c[0]])].map(q).join(','); })).join('\r\n');
 }
 async function save(filename,text){
   if(!downloads){ toast('이 화면에서는 파일 저장을 쓸 수 없습니다'); return; }
@@ -510,154 +405,50 @@ async function save(filename,text){
   catch(e){ if(e.code!=='declined') toast('파일을 저장하지 못했습니다'); }
 }
 const stamp=()=>iso(new Date());
-$('exportPageBtn').onclick=async()=> state.items.length ? (await ensureZips(state.items), save(`${TYPE_NAME[state.type]}_${stamp()}_${state.page}쪽.csv`, csv(state.items,[],state.type==='store'?SCOLS:COLS))) : toast('먼저 조회하세요');
+// 지금 조건의 전체 결과 (경남: 서버에서 한 번에 / 가맹본부: 페이지를 넘겨 최대 2000건)
+async function fetchAll(b,label){
+  if(!state.last) throw new Error('먼저 조회하세요');
+  if(state.type!=='fc') return (await api({...state.last,all:'1'})).items;
+  const max=Math.min(state.total,2000), pages=Math.ceil(max/100), all=[];
+  for(let p=1;p<=pages;p++){ b.textContent=`${label} ${p}/${pages}`; all.push(...(await api({...state.last,pageNo:p,numOfRows:100})).items); }
+  if(state.total>max) toast(`앞 ${max.toLocaleString()}건만 받았습니다`);
+  return all;
+}
+$('exportPageBtn').onclick=()=> state.items.length ? save(`${TYPE_NAME[state.type]}_${stamp()}_${state.page}쪽.csv`, csv(state.items)) : toast('먼저 조회하세요');
 $('exportAllBtn').onclick=async()=>{
-  if(state.type==='store'){
-    const all=state.storeFiltered||[]; if(!all.length) return toast('먼저 조회하세요');
-    const b=$('exportAllBtn'); b.disabled=true; b.textContent='우편번호 찾는 중…';
-    try{ await ensureZips(all); await save(`${TYPE_NAME.store}_${state.storeLabel||''}_${stamp()}_${all.length}건.csv`, csv(all,[],SCOLS)); }
-    finally{ b.disabled=false; b.textContent='전체 CSV'; }
-    return;
-  }
-  if(!state.last) return toast('먼저 조회하세요');
-  if(state.filtered){ $('exportAllBtn').textContent='우편번호 찾는 중…'; await ensureZips(state.filtered); $('exportAllBtn').textContent='전체 CSV'; return save(`${TYPE_NAME[state.type]}_${stamp()}_면적_${state.filtered.length}건.csv`, csv(state.filtered)); }
-  const max=Math.min(state.total,2000), pages=Math.ceil(max/100), all=[], b=$('exportAllBtn'); b.disabled=true;
-  try{ for(let p=1;p<=pages;p++){ b.textContent=`받는 중 ${p}/${pages}`; const j=await api({...state.last,pageNo:p,numOfRows:100}); all.push(...j.items); }
-       b.textContent='우편번호 찾는 중…'; await ensureZips(all.slice(0,max));
-       await save(`${TYPE_NAME[state.type]}_${stamp()}_${all.length}건.csv`, csv(all.slice(0,max)));
-       if(state.total>max) toast(`앞 ${max.toLocaleString()}건만 받았습니다. 조건을 좁혀 나눠 받으세요`);
-  }catch(e){ toast(e.message); }
+  const b=$('exportAllBtn'); b.disabled=true; b.textContent='받는 중…';
+  try{ const all=await fetchAll(b,'받는 중'); await save(`${TYPE_NAME[state.type]}_${stamp()}_${all.length}건.csv`, csv(all)); }
+  catch(e){ toast(e.message); }
   finally{ b.disabled=false; b.textContent='전체 CSV'; }
 };
-$('exportLeadsBtn').onclick=async()=>{
-  const l=Object.values(leads); if(!l.length) return toast('관심업체가 없습니다');
-  await ensureZips(l.map(v=>v.item));
-  save(`관심업체_${stamp()}.csv`, csv(l.map(v=>({...v.item,_t:TYPE_NAME[v.type],_s:v.stage,_m:v.memo})),[['_t','업종'],['_s','영업단계'],['_m','메모']]));
+$('toFaxBtn').onclick=async()=>{
+  const b=$('toFaxBtn'); b.disabled=true; b.textContent='받는 중…';
+  try{
+    const all=(await fetchAll(b,'받는 중')).filter(hasFax);
+    if(!all.length) return toast('팩스번호가 있는 곳이 없습니다');
+    if(all.length>300 && !confirm(`팩스번호가 있는 ${all.length.toLocaleString()}곳을 모두 수신처에 넣을까요? 한 번 발송은 100곳까지라 나눠 보내야 합니다.`)) return;
+    addRcv(all.map(x=>({num:x.FAXNO,name:x.BPLC_NM})));
+  }catch(e){ toast(e.message); }
+  finally{ b.disabled=false; b.textContent='결과를 팩스 수신처로'; }
+};
+$('exportLeadsBtn').onclick=()=>{
+  const l=Object.values(leads).filter(v=>TYPE_NAME[v.type]); if(!l.length) return toast('관심업체가 없습니다');
+  save(`관심업체_${stamp()}.csv`, csv(l.map(v=>({...v.item,_t:TYPE_NAME[v.type],_s:v.stage,_m:v.memo})),[['_t','자료'],['_s','영업단계'],['_m','메모']]));
 };
 
-// ---------- 일반 상가 (소상공인시장진흥공단 상권정보) ----------
-const STORE_SCAN_MAX=20000;
-const PRESETS={
-  p1:{ name:'골목공구 1순위(식료품 소매)', codes:[['G20506','채소/과일'],['G20503','정육점'],['G20505','수산물'],['G20509','반찬/식료품'],['G20504','건어물/젓갈'],['G20501','곡물/곡분'],['G20508','건강보조식품']] },
-  p2:{ name:'골목공구 2순위(예약·포장 음식점)', codes:[['I21002','떡/한과'],['I21001','빵/도넛'],['I20103','족발/보쌈'],['I21007','김밥/만두/분식'],['I21201','카페']] },
-};
-function setPreset(pk){
-  state.preset=PRESETS[pk]?pk:'';
-  document.querySelectorAll('#presetChips .chip').forEach(c=>c.classList.toggle('on',c.dataset.p===state.preset));
-  document.querySelectorAll('.sto.up').forEach(e=>e.hidden=state.type!=='store'||!!state.preset);
-  $('presetNote').textContent=state.preset?PRESETS[state.preset].codes.map(c=>c[1]).join(' · '):'';
-}
-const UP_DEFAULT={l:'G2',m:'G205',s:'G20506'};  // 소매 > 식료품 소매 > 채소/과일 소매업
-function setType(t){
-  state.type=t; const st=t==='store';
-  document.querySelectorAll('.lic').forEach(e=>e.hidden=st);
-  document.querySelectorAll('.sto').forEach(e=>e.hidden=!st);
-  if(st) setPreset(state.preset||'');
-  $('fName').placeholder=st?'예: 청과, 마트, 떡':'방앗간, 참기름, 떡';
-  $('fName').previousElementSibling.textContent=st?'상호에 포함':'사업장명에 포함';
-  try{ localStorage.setItem('fbf_type',t); }catch(e){}
-}
-async function meta(p){
-  // 짧은 시간에 여러 번 부르면 포털이 빈 결과를 줄 때가 있어 두 번까지 다시 시도
-  for(let t=0;;t++){
-    const r=await fetch(API+'?'+new URLSearchParams({op:'store',...p}));
-    const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||'분류 목록을 불러오지 못했습니다.');
-    if((j.items||[]).length||t>=2) return j.items||[];
-    await new Promise(res=>setTimeout(res,1200));
-  }
-}
-const prefs=(()=>{ try{ return JSON.parse(localStorage.getItem('fbf_store')||'{}'); }catch(e){ return {}; } })();
-const savePrefs=()=>{ try{ localStorage.setItem('fbf_store',JSON.stringify({p:state.preset||'',l:$('sL').value,m:$('sM').value,s:$('sS').value,sido:$('sSido').value,sgg:$('sSigungu').value,dong:$('sDong').value})); }catch(e){} };
 const opt=(v,t,sel)=>`<option value="${esc(v)}" ${sel?'selected':''}>${esc(t)}</option>`;
-const byName=k=>(a,b)=>(a[k]||'').localeCompare(b[k]||'','ko');
-async function loadUpjong(){
-  const it=await meta({api:'largeUpjongList'});
-  const want=prefs.l!==undefined?prefs.l:UP_DEFAULT.l;
-  $('sL').innerHTML=opt('','업종 대분류 선택')+it.sort(byName('indsLclsNm')).map(x=>opt(x.indsLclsCd,x.indsLclsNm,x.indsLclsCd===want)).join('');
-  if($('sL').value) await loadMid(prefs.l!==undefined?prefs.m:UP_DEFAULT.m, prefs.l!==undefined?prefs.s:UP_DEFAULT.s);
-}
-async function loadMid(wantM,wantS){
-  const l=$('sL').value; $('sS').innerHTML=opt('','전체');
-  if(!l){ $('sM').innerHTML=opt('','대분류를 먼저 고르세요'); return; }
-  $('sM').innerHTML=opt('','불러오는 중…');
-  const it=await meta({api:'middleUpjongList',indsLclsCd:l});
-  $('sM').innerHTML=opt('','중분류 선택')+it.sort(byName('indsMclsNm')).map(x=>opt(x.indsMclsCd,x.indsMclsNm,x.indsMclsCd===wantM)).join('');
-  if($('sM').value) await loadSmall(wantS);
-}
-async function loadSmall(wantS){
-  const l=$('sL').value, m=$('sM').value;
-  if(!m){ $('sS').innerHTML=opt('','전체'); return; }
-  $('sS').innerHTML=opt('','불러오는 중…');
-  const it=await meta({api:'smallUpjongList',indsLclsCd:l,indsMclsCd:m});
-  $('sS').innerHTML=opt('','전체 (중분류 전체)')+it.sort(byName('indsSclsNm')).map(x=>opt(x.indsSclsCd,x.indsSclsNm,x.indsSclsCd===wantS)).join('');
-}
-$('sL').onchange=()=>{ loadMid('','').then(savePrefs); };
-$('sM').onchange=()=>{ loadSmall('').then(savePrefs); };
-$('sS').onchange=savePrefs;
-async function loadSido(){
-  const it=await meta({api:'baroApi',resId:'dong',catId:'mega'});
-  const want=prefs.sido||'48';
-  $('sSido').innerHTML=opt('','시·도 선택')+it.sort((a,b)=>a.ctprvnNm.localeCompare(b.ctprvnNm,'ko')).map(x=>opt(x.ctprvnCd,x.ctprvnNm,x.ctprvnCd===want)).join('');
-  if($('sSido').value) await loadSigungu(prefs.sido?prefs.sgg:'48127');
-}
-async function loadSigungu(want){
-  const c=$('sSido').value; $('sDong').innerHTML=opt('','전체');
-  if(!c){ $('sSigungu').innerHTML=opt('','시·도를 먼저 고르세요'); return; }
-  $('sSigungu').innerHTML=opt('','불러오는 중…');
-  const it=await meta({api:'baroApi',resId:'dong',catId:'cty',ctprvnCd:c});
-  $('sSigungu').innerHTML=opt('','전체 (시·도 전체)')+it.sort((a,b)=>a.signguNm.localeCompare(b.signguNm,'ko')).map(x=>opt(x.signguCd,x.signguNm,x.signguCd===want)).join('');
-  if($('sSigungu').value) await loadDong(prefs.sgg===want?prefs.dong:'');
-}
-async function loadDong(want){
-  const c=$('sSigungu').value; if(!c){ $('sDong').innerHTML=opt('','전체'); return; }
-  $('sDong').innerHTML=opt('','불러오는 중…');
-  try{ const it=await meta({api:'baroApi',resId:'dong',catId:'admi',signguCd:c});
-    $('sDong').innerHTML=opt('','전체')+it.sort((a,b)=>(a.adongNm||'').localeCompare(b.adongNm||'','ko')).map(x=>opt(x.adongCd,x.adongNm,x.adongCd===want)).join('');
-  }catch(e){ $('sDong').innerHTML=opt('','전체'); }
-}
-$('sSido').onchange=()=>{ loadSigungu('').then(savePrefs); };
-$('sSigungu').onchange=()=>{ loadDong('').then(savePrefs); };
-$('sDong').onchange=savePrefs;
-$('presetChips').onclick=e=>{ const c=e.target.closest('.chip'); if(!c) return; setPreset(c.dataset.p); savePrefs(); if(state.preset) search(1); };
-state.preset=PRESETS[prefs.p]?prefs.p:'';
-const storeReady=Promise.all([loadUpjong(),loadSido()]).catch(e=>{ $('err').textContent=e.message; $('err').hidden=false; });
-
-function normStore(x){
-  return { ...x, MNG_NO:x.bizesId, BPLC_NM:x.bizesNm+(x.brchNm?' '+x.brchNm:''), ROAD_NM_ADDR:x.rdnmAdr||'', LOTNO_ADDR:x.lnoAdr||'',
-    ROAD_NM_ZIP:x.newZipcd||'', SALS_STTS_CD:'01', SALS_STTS_NM:'상권정보 등록' };
-}
-async function searchStore(page,b){
-  await storeReady;
-  const L=$('sL').value, M=$('sM').value, S=$('sS').value, sido=$('sSido').value, sgg=$('sSigungu').value, dong=$('sDong').value;
-  const P=state.preset?PRESETS[state.preset]:null;
-  if(P&&!sido){ Object.assign(state,{page:1,total:0,items:[],storeKey:null,storeFiltered:[]}); throw new Error('시·도를 고르세요.'); }
-  if(!P&&(!L||!sido)){ Object.assign(state,{page:1,total:0,items:[],storeKey:null,storeFiltered:[]}); throw new Error('업종 대분류와 시·도는 꼭 골라야 합니다.'); }
-  const key=[P?state.preset:[L,M,S].join(','),sido,sgg,dong].join('|');
-  if(state.storeKey!==key){
-    const base={op:'store',api:'storeListInDong',divId:dong?'adongCd':sgg?'signguCd':'ctprvnCd',key:dong||sgg||sido,numOfRows:1000};
-    const jobs=P?P.codes.map(c=>({indsSclsCd:c[0]})):[S?{indsSclsCd:S}:M?{indsMclsCd:M}:{indsLclsCd:L}];
-    const all=[]; let total=0, cut=false;
-    for(const [ji,f] of jobs.entries()){
-      let t=Infinity, got=0;
-      for(let pn=1; got<t && all.length<STORE_SCAN_MAX; pn++){
-        b.textContent=`받는 중${jobs.length>1?` (${ji+1}/${jobs.length})`:''} ${all.length.toLocaleString()}건…`;
-        const j=await api({...base,...f,pageNo:pn}); t=j.totalCount||0; got+=j.items.length; all.push(...j.items.map(normStore));
-        if(!j.items.length) break;
-      }
-      total+=t===Infinity?0:t; if(all.length>=STORE_SCAN_MAX){ cut=true; break; }
-    }
-    state.storeAll=all; state.storeKey=key;
-    state.storeLabel=[P?P.name:(S?$('sS'):M?$('sM'):$('sL')).selectedOptions[0]?.text, sgg?$('sSigungu').selectedOptions[0]?.text:$('sSido').selectedOptions[0]?.text, dong?$('sDong').selectedOptions[0]?.text:''].filter(Boolean).join(' · ');
-    state.scanNote = cut ? `${total>all.length?`전체 ${total.toLocaleString()}곳 중 `:''}앞 ${STORE_SCAN_MAX.toLocaleString()}곳만 받았습니다. 시·군·구나 업종 소분류를 골라 좁혀 보세요.` : '';
-  }
-  const nq=$('fName').value.trim(), aq=$('fAddr').value.trim();
-  const f=state.storeAll.filter(it=>(!nq||it.BPLC_NM.includes(nq))&&(!aq||(it.ROAD_NM_ADDR+' '+it.LOTNO_ADDR).includes(aq)))
-    .sort((a,b)=>(a.adongNm||'').localeCompare(b.adongNm||'','ko')||a.BPLC_NM.localeCompare(b.BPLC_NM,'ko'));
-  const per=+$('perPage').value;
-  Object.assign(state,{page, total:f.length, storeFiltered:f, items:f.slice((page-1)*per,page*per), last:null, filtered:null});
-}
 
 // ---------- wiring ----------
+function setType(t){
+  state.type=t; const fc=t==='fc';
+  document.querySelectorAll('.gn').forEach(e=>e.hidden=fc);
+  document.querySelectorAll('.fc').forEach(e=>e.hidden=!fc);
+  $('fQLabel').textContent=t==='mfr'?'이름·업종·생산품에 포함':'기관명·대표자에 포함';
+  $('fQ').placeholder=t==='mfr'?'식품, 참기름, 기계':'요양원, 주야간보호';
+  $('fSgg').innerHTML=opt('','전체'); $('gnNote').textContent='';
+  Object.assign(state,{page:1,total:0,items:[],last:null});
+  try{ localStorage.setItem('fbf_type',t); }catch(e){}
+}
 function showTab(t){
   $('searchView').hidden=t!=='search'; $('leadsView').hidden=t!=='leads'; $('faxView').hidden=t!=='fax';
   $('tabSearch').classList.toggle('on',t==='search'); $('tabLeads').classList.toggle('on',t==='leads'); $('tabFax').classList.toggle('on',t==='fax');
@@ -666,14 +457,11 @@ function showTab(t){
 }
 $('tabSearch').onclick=()=>showTab('search'); $('tabLeads').onclick=()=>showTab('leads'); $('tabFax').onclick=()=>showTab('fax');
 document.querySelectorAll('#typeSeg button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('#typeSeg button').forEach(x=>x.classList.toggle('on',x===b)); setType(b.dataset.v);
-  if(state.type!=='store' || $('sSido').value) search(1); else renderRows();
+  document.querySelectorAll('#typeSeg button').forEach(x=>x.classList.toggle('on',x===b)); setType(b.dataset.v); search(1);
 });
-$('quick').onclick=e=>{ const c=e.target.closest('.chip'); if(c){ setQuick(+c.dataset.d); search(1);} };
-['fFrom','fTo'].forEach(id=>$(id).onchange=()=>document.querySelectorAll('#quick .chip').forEach(c=>c.classList.remove('on')));
+$('fSgg').onchange=()=>search(1); $('fFaxOnly').onchange=()=>search(1);
 $('filterForm').onsubmit=e=>{ e.preventDefault(); search(1); };
-$('resetBtn').onclick=()=>{ if(state.type==='store'){ ['fName','fAddr'].forEach(i=>$(i).value=''); $('sDong').value=''; savePrefs(); return search(1); }
-   ['fName','fAddr','fRegion','fAreaMin','fAreaMax'].forEach(i=>$(i).value=''); $('fStatus').value='01'; setQuick(30); search(1); };
+$('resetBtn').onclick=()=>{ ['fQ','fAddr','fMnno'].forEach(i=>$(i).value=''); $('fSgg').value=''; $('fFaxOnly').checked=true; $('fYear').value=new Date().getFullYear()-1; search(1); };
 $('perPage').onchange=()=>search(1);
 $('rows').onclick=e=>{ const tr=e.target.closest('tr[data-i]'); if(tr) openDrawer(state.items[+tr.dataset.i],state.type); };
 $('pager').onclick=e=>{ const b=e.target.closest('[data-go]'); if(b&&!b.disabled) search(+b.dataset.go); };
@@ -681,11 +469,10 @@ function showLogin(msg){ $('searchView').hidden=true; $('leadsView').hidden=true
 $('loginForm').onsubmit=e=>{ e.preventDefault(); PW=$('pwInput').value; try{localStorage.setItem('fbf_pw',PW);}catch(_){}
   $('loginView').hidden=true; showTab('search'); search(1); };
 
-setQuick(30);
-(()=>{ let t='instant'; try{ t=localStorage.getItem('fbf_type')||'instant'; }catch(e){}
-  if(!TYPE_NAME[t]) t='instant';
-  document.querySelectorAll('#typeSeg button').forEach(x=>x.classList.toggle('on',x.dataset.v===t)); setType(t);
-  if(t==='store') storeReady.then(()=>$('sSido').value?search(1):renderRows()); else search(1);
+$('fYear').value=new Date().getFullYear()-1;
+(()=>{ let t='mfr'; try{ t=localStorage.getItem('fbf_type')||'mfr'; }catch(e){}
+  if(!TYPE_NAME[t]) t='mfr';
+  document.querySelectorAll('#typeSeg button').forEach(x=>x.classList.toggle('on',x.dataset.v===t)); setType(t); search(1);
 })();
 
 // ---------- 팩스 발송 (팝빌) ----------
@@ -711,14 +498,12 @@ function addRcv(list){
   const lines=list.filter(x=>{ const d=digitsOnly(x.num); if(d.length<8||have.has(d)) return false; have.add(d); n++; return true; })
     .map(x=>`${fmtTel(x.num)}, ${String(x.name||'').replace(/[\r\n,]/g,' ')}`);
   if(lines.length){ const t=$('fxRcvText'); t.value=(t.value.trim()?t.value.trim()+'\n':'')+lines.join('\n'); saveRcv(); renderRcvNote(); resetConfirm(); }
-  toast(n?`팩스 수신처에 ${n}곳 추가했습니다 · 번호가 팩스번호가 맞는지 확인하세요`:'추가할 새 번호가 없습니다');
+  toast(n?`팩스 수신처에 ${n}곳 추가했습니다`:'추가할 새 번호가 없습니다');
 }
 $('leadsToFaxBtn').onclick=()=>{
-  const f=$('leadFilter').value, q=$('leadSearch').value.trim();
-  const arr=Object.values(leads).filter(v=>(!f||v.stage===f)&&(!q||(v.item.BPLC_NM+' '+(v.memo||'')).includes(q)));
-  const withNo=arr.filter(v=>v.item.FAXNO||v.item.TELNO);
-  if(!withNo.length) return toast('번호가 있는 관심업체가 없습니다');
-  addRcv(withNo.map(v=>({num:v.item.FAXNO||v.item.TELNO,name:v.item.BPLC_NM})));
+  const withNo=leadsShown().map(([,v])=>v).filter(v=>hasFax(v.item));
+  if(!withNo.length) return toast('팩스번호가 있는 관심업체가 없습니다');
+  addRcv(withNo.map(v=>({num:v.item.FAXNO,name:v.item.BPLC_NM})));
 };
 async function faxApi(p,init){
   const r=await fetch(API+'?'+new URLSearchParams(p),{...init,headers:{'x-access-pw':PW,...(init&&init.headers||{})}});

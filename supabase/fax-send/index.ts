@@ -1,15 +1,19 @@
-// 공공데이터포털 프록시: 식품 인허가(행정안전부) + 상가(상권)정보(소상공인시장진흥공단) + 우편번호(우정사업본부)
+// 공공데이터포털 프록시: 경상남도 제조업체 · 경상남도 노인복지시설 · 공정거래위원회 가맹본부 일반정보 변경이력
 // + 팝빌 팩스 발송 API (op=fax*)
 // 인증키는 Edge Function 시크릿 DATA_GO_KR_KEY 에만 저장됩니다.
 // 팝빌 시크릿: POPBILL_LINK_ID, POPBILL_SECRET_KEY, POPBILL_CORP_NUM(사업자번호 10자리),
 //              POPBILL_IS_TEST('false'일 때만 실제 발송, 그 외에는 테스트 환경), POPBILL_USER_ID(선택)
 // 접속 비밀번호는 시크릿 ACCESS_PASSWORD (헤더 x-access-pw 로 확인)
+//
+// op=gn&src=mfr|senior  경남 데이터 (원본 API에 검색 조건이 없어 전체를 받아 서버에서 거르고, 6시간 보관)
+//   q(이름·업종·생산품) addr(주소) sgg(시군) fax=1(팩스번호 있는 곳만) pageNo numOfRows all=1(최대 5000건 한 번에)
+// op=fc  가맹본부 변경이력  year(기준년도, 필수) mnno(가맹본부관리번호) pageNo numOfRows
 
-const ENDPOINTS: Record<string, string> = {
-  instant: 'https://apis.data.go.kr/1741000/instant_food_processors', // 즉석판매제조가공업
-  retail: 'https://apis.data.go.kr/1741000/other_food_retailers', // 식품판매업(기타)
+const GN: Record<string, { url: string; name: string }> = {
+  mfr: { url: 'https://apis.data.go.kr/6480000/gyeongnammanufacturer/gyeongnammanufacturerList', name: '경남 제조업체' },
+  senior: { url: 'https://apis.data.go.kr/6480000/gyeongnamseniorwelfare/gyeongnamseniorwelfareList', name: '경남 노인복지시설' },
 };
-const ZIP_URL = 'http://openapi.epost.go.kr/postal/retrieveNewZipCdService/retrieveNewZipCdService/getNewZipCdList';
+const FC_URL = 'https://apis.data.go.kr/1130000/FftcjnghdqrtrsInfoChghst2_Service/getjnghdqrtrsGnlHist';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -25,91 +29,131 @@ function json(status: number, body: unknown) {
 }
 const clean = (v: string | null, max = 60) => (v ?? '').trim().slice(0, max);
 const ymd = (v: string | null) => { const s = clean(v).replace(/-/g, ''); return /^\d{8}$/.test(s) ? s : ''; };
+const s = (v: unknown) => (v === null || v === undefined ? '' : String(v).trim());
+const qs = (p: [string, string][]) => p.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
 
-// ---------- 우편번호 ----------
-const zipCache = new Map<string, string>();
+class ApiError extends Error { code: string; constructor(msg: string, code = '') { super(msg); this.code = code; } }
 
-// 주소에서 검색에 필요한 부분만 남김: 도로명은 건물번호까지, 지번은 번지까지
-function zipQuery(addr: string): string {
-  let a = addr.replace(/\(.*?\)/g, ' ').split(',')[0].replace(/\s+/g, ' ').trim();
-  const road = a.match(/^(.*?(?:로|길)\s?\d+(?:-\d+)?)(?=\s|$)/);
-  if (road) return road[1];
-  const lot = a.match(/^(.*?(?:동|리|가|읍|면)\s(?:산\s?)?\d+(?:-\d+)?)(?=\s|$|[^\d-])/);
-  if (lot) return lot[1];
-  return a.slice(0, 60);
-}
-
-async function lookupZip(key: string, addr: string): Promise<string> {
-  const q = zipQuery(addr);
-  if (!q) return '';
-  if (zipCache.has(q)) return zipCache.get(q)!;
-  const url = `${ZIP_URL}?serviceKey=${encodeURIComponent(key)}&srchwrd=${encodeURIComponent(q)}&countPerPage=1&currentPage=1`;
-  try {
-    const t = await (await fetch(url)).text();
-    if (/<returnCode>(\d+)</.exec(t)?.[1] === '30') throw new Error('KEY');
-    const z = /<zipNo>(\d{5})<\/zipNo>/.exec(t)?.[1] ?? '';
-    zipCache.set(q, z);
-    return z;
-  } catch (e) {
-    if ((e as Error).message === 'KEY') throw e;
-    return '';
-  }
-}
-
-async function handleZip(req: Request, key: string) {
-  let addrs: unknown;
-  try { addrs = (await req.json())?.addrs; } catch { /* ignore */ }
-  if (!Array.isArray(addrs)) return json(400, { error: 'addrs 배열이 필요합니다.' });
-  const list = addrs.slice(0, 100).map((a) => (typeof a === 'string' ? a.slice(0, 200) : ''));
-  const out: string[] = new Array(list.length).fill('');
-  let i = 0;
-  try {
-    await Promise.all(Array.from({ length: 8 }, async () => {
-      while (i < list.length) { const n = i++; out[n] = list[n] ? await lookupZip(key, list[n]) : ''; }
-    }));
-  } catch {
-    return json(502, { error: '우편번호 API 인증키가 등록되지 않았습니다.' });
-  }
-  return json(200, { zips: out });
-}
-
-// ---------- 소상공인시장진흥공단 상가(상권)정보 ----------
-const SDSC = 'https://apis.data.go.kr/B553077/api/open/sdsc2';
-const SDSC_OPS = new Set(['storeListInDong', 'storeListInRadius', 'storeListInUpjong', 'storeOne',
-  'largeUpjongList', 'middleUpjongList', 'smallUpjongList', 'baroApi']);
-const SDSC_PARAMS = ['divId', 'key', 'indsLclsCd', 'indsMclsCd', 'indsSclsCd', 'radius', 'cx', 'cy',
-  'resId', 'catId', 'ctprvnCd', 'signguCd', 'adongCd'];
-
-async function handleStore(q: URLSearchParams, key: string) {
-  const api = q.get('api') ?? '';
-  if (!SDSC_OPS.has(api)) return json(400, { error: '지원하지 않는 상가정보 조회입니다.' });
-  const params: [string, string][] = [['serviceKey', key], ['type', 'json']];
-  if (api.startsWith('storeList')) {
-    params.push(['pageNo', String(Math.max(1, parseInt(q.get('pageNo') ?? '1', 10) || 1))]);
-    params.push(['numOfRows', String(Math.min(1000, Math.max(1, parseInt(q.get('numOfRows') ?? '100', 10) || 100)))]);
-  }
-  for (const p of SDSC_PARAMS) { const v = clean(q.get(p), 30); if (v) params.push([p, v]); }
-  const url = `${SDSC}/${api}?` + params.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-  try {
-    const text = await (await fetch(url, { headers: { Accept: 'application/json' } })).text();
-    let data: any;
-    try { data = JSON.parse(text); } catch {
-      const msg = /<returnAuthMsg>(.*?)</.exec(text)?.[1] || /<resultMsg>(.*?)</.exec(text)?.[1] || '';
-      return json(502, { error: msg.includes('SERVICE_KEY') ? '상가정보 API 인증키가 아직 활성화되지 않았습니다. 활용신청 승인 후 1~2시간 뒤 다시 시도하세요.' : '상가정보 응답을 해석하지 못했습니다.', detail: text.slice(0, 300) });
+// 공공데이터포털 공통 응답 해석 (JSON 또는 게이트웨이 XML 오류)
+async function portal(url: string, label: string): Promise<{ total: number; items: any[] }> {
+  let text = '';
+  try { text = await (await fetch(url, { headers: { Accept: 'application/json' } })).text(); }
+  catch (e) { throw new ApiError(`${label} 연결 실패: ${String(e).slice(0, 120)}`); }
+  let data: any;
+  try { data = JSON.parse(text); } catch {
+    const msg = /<returnAuthMsg>(.*?)</.exec(text)?.[1] || /<resultMsg>(.*?)</.exec(text)?.[1] || /<errMsg>(.*?)</.exec(text)?.[1] || '';
+    if (/SERVICE_KEY|SERVICE KEY|NOT_REGISTERED|KEY_IS_NOT/i.test(msg + text)) {
+      throw new ApiError(`${label} 인증키가 아직 활성화되지 않았습니다. 활용신청 승인 후 1~2시간 뒤 다시 시도하세요.`, 'KEY');
     }
-    const root = data?.response ?? data;
-    const header = root?.header ?? {};
-    if (header.resultCode === '03') return json(200, { totalCount: 0, items: [], stdrYm: header.stdrYm ?? '', code: '03', msg: header.resultMsg ?? '' });
-    if (header.resultCode && header.resultCode !== '00' && header.resultCode !== '0') {
-      return json(502, { error: header.resultMsg || '상가정보 조회 실패', code: header.resultCode });
+    throw new ApiError(`${label} 응답을 해석하지 못했습니다. ${msg}`.trim(), 'PARSE');
+  }
+  const root = data?.response ?? data;
+  const header = root?.header ?? {};
+  const code = s(header.resultCode ?? root?.resultCode);
+  if (code === '03') return { total: 0, items: [] };          // NODATA
+  if (code && code !== '00' && code !== '0') throw new ApiError(s(header.resultMsg ?? root?.resultMsg) || `${label} 조회 실패`, code);
+  const body = root?.body ?? root;
+  let items = body?.items?.item ?? body?.items ?? [];
+  if (!Array.isArray(items)) items = items ? [items] : [];
+  const total = parseInt(s(body?.totalCount ?? root?.totalCount), 10);
+  return { total: Number.isFinite(total) ? total : items.length, items };
+}
+
+// ---------- 경상남도 (제조업체 · 노인복지시설) ----------
+type Row = Record<string, unknown> & { MNG_NO: string; BPLC_NM: string; ROAD_NM_ADDR: string; TELNO: string; FAXNO: string; SGG: string; detail: [string, string][] };
+
+function normGn(src: string, x: any): Row {
+  if (src === 'mfr') {
+    const name = s(x.entrprsNm), addr = s(x.rdnmadr);
+    return { MNG_NO: `mfr:${name}|${addr}`, BPLC_NM: name, ROAD_NM_ADDR: addr, TELNO: s(x.telno), FAXNO: s(x.fax), SGG: s(x.signguNm),
+      INDUTY: s(x.indutyNm), GOODS: s(x.maingoods), REP: s(x.rprsntvNm), MEMBERS: s(x.membercnt),
+      detail: [['업종', s(x.indutyNm)], ['주요생산품', s(x.maingoods)], ['대표자', s(x.rprsntvNm)], ['종업원수', s(x.membercnt)],
+        ['시군', s(x.signguNm)], ['주소', addr], ['전화번호', s(x.telno)], ['팩스번호', s(x.fax)],
+        ['위도·경도', x.latitude ? `${s(x.latitude)}, ${s(x.logitude)}` : ''], ['데이터기준일', s(x.referenceDate)]] };
+  }
+  const name = s(x.title), addr = s(x.roadaddress);
+  return { MNG_NO: `senior:${s(x.entid) || name + '|' + addr}`, BPLC_NM: name, ROAD_NM_ADDR: addr, TELNO: s(x.tel), FAXNO: s(x.fax), SGG: s(x.sigungu),
+    REP: s(x.delegate), HPG: s(x.homepage),
+    detail: [['시군구', s(x.sigungu)], ['대표자', s(x.delegate)], ['주소', addr], ['전화번호', s(x.tel)], ['팩스번호', s(x.fax)],
+      ['홈페이지', s(x.homepage)], ['고유번호', s(x.entid)]] };
+}
+
+const GN_TTL = 6 * 3600_000;
+const gnCache = new Map<string, { at: number; rows: Row[] }>();
+const gnLoading = new Map<string, Promise<Row[]>>();
+
+async function gnLoad(src: string, key: string): Promise<Row[]> {
+  const c = gnCache.get(src);
+  if (c && Date.now() - c.at < GN_TTL) return c.rows;
+  if (gnLoading.has(src)) return gnLoading.get(src)!;
+  const job = (async () => {
+    const per = 1000, rows: Row[] = [];
+    for (let page = 1; page <= 60; page++) {
+      const url = `${GN[src].url}?` + qs([['ServiceKey', key], ['pageNo', String(page)], ['numOfRows', String(per)], ['resultType', 'json']]);
+      const r = await portal(url, GN[src].name);
+      rows.push(...r.items.map((x) => normGn(src, x)));
+      if (!r.items.length || rows.length >= r.total) break;
     }
-    const body = root?.body ?? {};
-    let items = body?.items?.item ?? body?.items ?? [];
-    if (!body?.items && q.get('debug') === '1') return json(200, { totalCount: 0, items: [], raw: text.slice(0, 400) });
-    if (!Array.isArray(items)) items = [items];
-    return json(200, { totalCount: body.totalCount ?? items.length, pageNo: body.pageNo, numOfRows: body.numOfRows, stdrYm: header.stdrYm ?? '', items });
+    gnCache.set(src, { at: Date.now(), rows });
+    return rows;
+  })();
+  gnLoading.set(src, job);
+  try { return await job; } finally { gnLoading.delete(src); }
+}
+
+async function handleGn(q: URLSearchParams, key: string) {
+  const src = q.get('src') ?? '';
+  if (!GN[src]) return json(400, { error: '지원하지 않는 자료입니다.' });
+  let rows: Row[];
+  try { rows = await gnLoad(src, key); }
+  catch (e) { return json(502, { error: (e as Error).message, code: (e as ApiError).code ?? '' }); }
+
+  const words = clean(q.get('q')).split(/\s+/).filter(Boolean);
+  const addr = clean(q.get('addr')), sgg = clean(q.get('sgg'), 30), faxOnly = q.get('fax') === '1';
+  const hay = (r: Row) => [r.BPLC_NM, r.INDUTY, r.GOODS, r.REP].join(' ');
+  const hit = rows.filter((r) => (!faxOnly || r.FAXNO.replace(/\D/g, '').length >= 8)
+    && (!sgg || r.SGG === sgg) && (!addr || r.ROAD_NM_ADDR.includes(addr))
+    && words.every((w) => hay(r).includes(w)));
+
+  const sggs = [...rows.reduce((m, r) => (r.SGG ? m.set(r.SGG, (m.get(r.SGG) ?? 0) + 1) : m), new Map<string, number>())]
+    .sort((a, b) => a[0].localeCompare(b[0], 'ko')).map(([name, n]) => ({ name, n }));
+  const withFax = rows.filter((r) => r.FAXNO.replace(/\D/g, '').length >= 8).length;
+  const loadedAt = new Date(gnCache.get(src)?.at ?? Date.now()).toISOString();
+
+  if (q.get('all') === '1') return json(200, { totalCount: hit.length, items: hit.slice(0, 5000), sggs, all: rows.length, withFax, loadedAt });
+  const per = Math.min(100, Math.max(1, parseInt(q.get('numOfRows') ?? '50', 10) || 50));
+  const page = Math.max(1, parseInt(q.get('pageNo') ?? '1', 10) || 1);
+  return json(200, { totalCount: hit.length, pageNo: page, numOfRows: per, items: hit.slice((page - 1) * per, page * per), sggs, all: rows.length, withFax, loadedAt });
+}
+
+// ---------- 공정거래위원회 가맹본부 일반정보 변경이력 ----------
+function normFc(x: any): Row {
+  const name = s(x.jnghdqrtrsConmNm), addr = [s(x.lctnAddr), s(x.lctnDaddr)].filter(Boolean).join(' ');
+  const kind = s(x.indvdlCorpSeCd) === '11' ? '법인' : s(x.indvdlCorpSeCd) === '10' ? '개인' : '';
+  return { MNG_NO: `fc:${s(x.jnghdqrtrsMnno)}:${s(x.hstrSn)}`, BPLC_NM: name, ROAD_NM_ADDR: addr,
+    TELNO: s(x.jnghdqrtrsRprsTelno), FAXNO: s(x.jnghdqrtrsRprsFxno), SGG: s(x.areaNm),
+    REP: s(x.jnghdqrtrsRprsvNm), HQ_NO: s(x.jnghdqrtrsMnno), HIST: s(x.hstrSn), YEAR: s(x.jngBizCrtraYr),
+    BRANDS: s(x.brandCnt), SCALE: s(x.entScaleNm), HPG: s(x.hmpgUrladr),
+    detail: [['대표자', s(x.jnghdqrtrsRprsvNm)], ['지역', s(x.areaNm)], ['주소', addr], ['우편번호(구)', s(x.jnghdqrtrsOzip)],
+      ['전화번호', s(x.jnghdqrtrsRprsTelno)], ['팩스번호', s(x.jnghdqrtrsRprsFxno)], ['사업자등록번호', s(x.brno)],
+      ['개인·법인', kind], ['사업자등록일', s(x.bzmnRgsDate)], ['법인등기일', s(x.corpRgDate)], ['브랜드 수', s(x.brandCnt)],
+      ['계열회사 수', s(x.affltsCnt)], ['기업규모', s(x.entScaleNm)], ['가맹기관', s(x.jngInstNm)], ['홈페이지', s(x.hmpgUrladr)],
+      ['가맹본부관리번호', s(x.jnghdqrtrsMnno)], ['이력일련번호', s(x.hstrSn)], ['가맹사업기준년도', s(x.jngBizCrtraYr)]] };
+}
+
+async function handleFc(q: URLSearchParams, key: string) {
+  const year = clean(q.get('year'), 4);
+  if (!/^\d{4}$/.test(year)) return json(400, { error: '기준년도(4자리)를 넣으세요.' });
+  const mnno = clean(q.get('mnno'), 30).replace(/[^\w-]/g, '');
+  const per = Math.min(100, Math.max(1, parseInt(q.get('numOfRows') ?? '50', 10) || 50));
+  const page = Math.max(1, parseInt(q.get('pageNo') ?? '1', 10) || 1);
+  const params: [string, string][] = [['serviceKey', key], ['pageNo', String(page)], ['numOfRows', String(per)], ['resultType', 'json'], ['jngBizCrtraYr', year]];
+  if (mnno) params.push(['jnghdqrtrsMnno', mnno]);
+  try {
+    const r = await portal(`${FC_URL}?${qs(params)}`, '가맹본부 변경이력');
+    return json(200, { totalCount: r.total, pageNo: page, numOfRows: per, items: r.items.map(normFc) });
   } catch (e) {
-    return json(502, { error: '상가정보 API 연결 실패', detail: String(e).slice(0, 200) });
+    return json(502, { error: (e as Error).message, code: (e as ApiError).code ?? '' });
   }
 }
 
@@ -240,59 +284,17 @@ async function handleFax(req: Request, op: string, q: URLSearchParams) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
-  const q0 = new URL(req.url).searchParams;
-  // 업종·지역 분류 목록은 공개 기준정보라 비밀번호 없이 허용 (업체 목록은 보호)
-  const isMeta = q0.get('op') === 'store' && /^(largeUpjongList|middleUpjongList|smallUpjongList|baroApi)$/.test(q0.get('api') ?? '');
+  const q = new URL(req.url).searchParams;
   const pw = Deno.env.get('ACCESS_PASSWORD');
-  if (pw && !isMeta && req.headers.get('x-access-pw') !== pw) return json(401, { error: '접속 비밀번호가 올바르지 않습니다.' });
+  if (pw && req.headers.get('x-access-pw') !== pw) return json(401, { error: '접속 비밀번호가 올바르지 않습니다.' });
 
-  const op0 = q0.get('op') ?? '';
-  if (op0.startsWith('fax')) return handleFax(req, op0, q0);
+  const op = q.get('op') ?? '';
+  if (op.startsWith('fax')) return handleFax(req, op, q);
 
   const key = Deno.env.get('DATA_GO_KR_KEY');
   if (!key) return json(500, { error: '서버에 DATA_GO_KR_KEY 시크릿이 아직 없습니다.' });
 
-  const q = new URL(req.url).searchParams;
-  if (q.get('op') === 'zip' && req.method === 'POST') return handleZip(req, key);
-  if (q.get('op') === 'store') return handleStore(q, key);
-
-  const base = ENDPOINTS[q.get('type') ?? ''] ?? ENDPOINTS.instant;
-  const op = q.get('op') === 'history' ? 'history' : 'info';
-  const pageNo = Math.max(1, parseInt(q.get('pageNo') ?? '1', 10) || 1);
-  const numOfRows = Math.min(100, Math.max(1, parseInt(q.get('numOfRows') ?? '50', 10) || 50));
-
-  const params: [string, string][] = [
-    ['serviceKey', key], ['pageNo', String(pageNo)], ['numOfRows', String(numOfRows)], ['returnType', 'json'],
-  ];
-  const cond = (name: string, value: string) => { if (value) params.push([`cond[${name}]`, value]); };
-  cond('BPLC_NM::LIKE', clean(q.get('name')));
-  if (op === 'info') cond('ROAD_NM_ADDR::LIKE', clean(q.get('addr')));
-  const status = q.get('status') ?? '';
-  if (/^\d{2}$/.test(status)) cond('SALS_STTS_CD::EQ', status);
-  cond('LCPMT_YMD::GTE', ymd(q.get('from')));
-  cond('LCPMT_YMD::LT', ymd(q.get('to')));
-  const region = q.get('region') ?? '';
-  if (/^\d{7}$/.test(region)) cond('OPN_ATMY_GRP_CD::EQ', region);
-  if (op === 'history') cond('BASE_DATE::EQ', ymd(q.get('baseDate')));
-
-  const url = `${base}/${op}?` + params.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-
-  try {
-    const r = await fetch(url, { headers: { Accept: 'application/json' } });
-    const text = await r.text();
-    let data: any;
-    try { data = JSON.parse(text); } catch {
-      return json(502, { error: '공공데이터포털 응답을 해석하지 못했습니다.', detail: text.slice(0, 300) });
-    }
-    const header = data?.response?.header ?? {};
-    if (header.resultCode && header.resultCode !== '0' && header.resultCode !== '00') {
-      return json(502, { error: header.resultMsg || '조회 실패', code: header.resultCode });
-    }
-    const body = data?.response?.body ?? {};
-    let items = body?.items?.item ?? [];
-    if (!Array.isArray(items)) items = [items];
-    return json(200, { totalCount: body.totalCount ?? 0, pageNo: body.pageNo ?? pageNo, numOfRows: body.numOfRows ?? numOfRows, items });
-  } catch (e) {
-    return json(502, { error: '공공데이터포털 연결 실패', detail: String(e).slice(0, 200) });
-  }
+  if (op === 'gn') return handleGn(q, key);
+  if (op === 'fc') return handleFc(q, key);
+  return json(400, { error: '지원하지 않는 요청입니다.' });
 });

@@ -1,10 +1,19 @@
-# 식품업체 영업 레이더 · 팩스
+# 영업 레이더 · 팩스
 
-[food-radar](https://github.com/YongjuShin83/food-radar)와 같은 화면·구조에 **팝빌 팩스 발송**을 붙인 버전입니다.
+영업 대상 업체를 조회해 **팝빌 팩스**로 바로 보내는 화면입니다.
 
 - 화면: `index.html` (GitHub Pages) — 업체 조회 · 관심업체 · 팩스 발송 탭
 - 서버: `supabase/fax-send/index.ts` (Supabase Edge Function `fax-send`, 프로젝트 `qxbhsmgtbbcvuwiecenv`)
-  - food-radar의 `food-biz-search` 기능(인허가·상권정보·우편번호) + 팝빌 팩스(`op=faxInfo|faxSend|faxSearch|faxResult|faxCancel`)
+
+## 연결된 데이터 (공공데이터포털)
+
+| 자료 | 요청 주소 | 비고 |
+|---|---|---|
+| 경상남도_제조업체 | `apis.data.go.kr/6480000/gyeongnammanufacturer/gyeongnammanufacturerList` | 회사명·업종·생산품·전화·**팩스**. 검색 조건이 없어 서버가 전체를 받아 6시간 보관하며 거름 |
+| 경상남도_노인복지시설 | `apis.data.go.kr/6480000/gyeongnamseniorwelfare/gyeongnamseniorwelfareList` | 기관명·시군구·전화·**팩스**. 위와 같은 방식 |
+| 공정거래위원회_가맹정보_가맹본부 일반 정보 변경 이력현황 | `apis.data.go.kr/1130000/FftcjnghdqrtrsInfoChghst2_Service/getjnghdqrtrsGnlHist` | 기준년도(필수)·가맹본부관리번호로 조회. 대표 전화·**팩스** 포함 |
+
+서버 요청: `op=gn&src=mfr|senior` (q, addr, sgg, fax=1, pageNo, numOfRows, all=1) · `op=fc` (year, mnno, pageNo, numOfRows) · `op=fax*`
 
 ## Supabase 시크릿
 
