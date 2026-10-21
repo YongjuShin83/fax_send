@@ -1,4 +1,4 @@
-// 공공데이터포털 프록시: 경상남도 제조업체 · 경상남도 노인복지시설 · 공정거래위원회 가맹정보(브랜드 목록 + 가맹본부 일반정보 변경이력)
+// 공공데이터포털 프록시: 경상남도 제조업체 · 경상남도 노인복지시설 · 공정거래위원회 가맹정보(브랜드 목록 + 가맹본부 일반정보 상세·변경이력)
 // + 팝빌 팩스 발송 API (op=fax*)
 // 인증키는 Edge Function 시크릿 DATA_GO_KR_KEY 에만 저장됩니다.
 // 팝빌 시크릿: POPBILL_LINK_ID, POPBILL_SECRET_KEY, POPBILL_CORP_NUM(사업자번호 10자리),
@@ -7,8 +7,8 @@
 //
 // op=gn&src=mfr|senior  경남 데이터 (원본 API에 검색 조건이 없어 전체를 받아 서버에서 거르고, 6시간 보관)
 //   q(이름·업종·생산품) addr(주소) sgg(시군) fax=1(팩스번호 있는 곳만) pageNo numOfRows all=1(최대 5000건 한 번에)
-// op=fc  가맹본부  year(기준년도, 필수) q(브랜드·본부·대표·업종·상품) lcls(업종대분류) pageNo numOfRows all=1(최대 500곳, fax=1)
-// op=raw&src=mfr|senior|brand|fc  원본 응답 확인용
+// op=fc  가맹본부(올해+작년 합쳐 최신)  q(브랜드·본부·대표·업종·상품) lcls(업종대분류) addr(주소) sgg(지역) fax=1 pageNo numOfRows all=1
+// op=raw&src=mfr|senior|brand|fc|dtl  원본 응답 확인용
 
 const GN: Record<string, { url: string; name: string }> = {
   mfr: { url: 'https://apis.data.go.kr/6480000/gyeongnammanufacturer/gyeongnammanufacturerList', name: '경남 제조업체' },
@@ -136,106 +136,150 @@ async function handleGn(q: URLSearchParams, key: string) {
 }
 
 // ---------- 공정거래위원회 가맹정보 ----------
-// 브랜드 목록(기준년도 전체)으로 본부를 찾고, 본부별 일반정보 변경이력(최신 이력)에서 전화·팩스·주소를 채움
+// 올해·작년 두 해를 합쳐 본부마다 가장 최근 정보를 씀.
+//  1) 가맹본부 일반정보 상세(DTL): 기준년도 전체 본부 목록 + 주소·전화·팩스 (관리번호 없이 목록 조회)
+//  2) 브랜드 목록: 본부별 브랜드·업종·주요상품
+//  DTL을 쓸 수 없으면(활용신청 전) 변경이력 API로 화면에 보이는 본부만 연락처를 채움 (이때는 주소·지역 검색 불가)
 const BRAND_URL = 'https://apis.data.go.kr/1130000/FftcBrandRlsInfo2_Service/getBrandinfo';
-type Hq = { mnno: string; name: string; rep: string; brno: string; brands: string[]; lcls: string[]; mcls: string[]; goods: string[]; start: string };
-const brandCache = new Map<string, { at: number; hqs: Hq[] }>();
-const brandLoading = new Map<string, Promise<Hq[]>>();
-const histCache = new Map<string, any | null>();   // `${year}:${mnno}` -> 최신 이력 원본
+const DTL_URL = 'https://apis.data.go.kr/1130000/FftcJnghdqrtrsGnrlDtl3_Service/getjnghdqrtrsGnlinfo2';
+type Hq = { mnno: string; year: string; name: string; rep: string; brno: string; brands: string[]; lcls: string[]; mcls: string[]; goods: string[]; start: string; info: any | null };
+const FC_TTL = 12 * 3600_000;
+let fcCache: { at: number; hqs: Hq[]; years: string[]; dtl: boolean; dtlError: string } | null = null;
+let fcLoading: Promise<NonNullable<typeof fcCache>> | null = null;
+const histCache = new Map<string, any | null>();
 
-async function brandLoad(year: string, key: string): Promise<Hq[]> {
-  const c = brandCache.get(year);
-  if (c && Date.now() - c.at < 12 * 3600_000) return c.hqs;
-  if (brandLoading.has(year)) return brandLoading.get(year)!;
-  const job = (async () => {
-    const map = new Map<string, Hq>(); let got = 0;
-    for (let page = 1; page <= 40; page++) {
-      const url = `${BRAND_URL}?` + qs([['serviceKey', key], ['pageNo', String(page)], ['numOfRows', '1000'], ['resultType', 'json'], ['jngBizCrtraYr', year]]);
-      const r = await portal(url, '가맹 브랜드 목록');
-      for (const x of r.items) {
+const fcYears = () => { const y = new Date().getFullYear(); return [String(y), String(y - 1)]; };
+
+async function pagesOf(base: string, params: [string, string][], label: string, max = 40): Promise<any[]> {
+  const get = (page: number) => portal(`${base}?` + qs([...params, ['pageNo', String(page)], ['numOfRows', '1000'], ['resultType', 'json']]), label);
+  const first = await get(1);
+  const pages = Math.min(max, Math.ceil(first.total / 1000));
+  const rest: any[][] = new Array(Math.max(0, pages - 1));
+  let n = 2;
+  await Promise.all(Array.from({ length: 5 }, async () => { while (n <= pages) { const p = n++; rest[p - 2] = (await get(p)).items; } }));
+  return [first.items, ...rest].flat();
+}
+
+async function fcLoad(key: string) {
+  if (fcCache && Date.now() - fcCache.at < FC_TTL) return fcCache;
+  if (fcLoading) return fcLoading;
+  fcLoading = (async () => {
+    const years = fcYears();   // [올해, 작년] — 앞쪽이 최신
+    const map = new Map<string, Hq>();
+    const add = (arr: string[], v: string) => { if (v && !arr.includes(v)) arr.push(v); };
+    // 브랜드: 최신 해에 있는 본부는 그 해 브랜드만, 없으면 작년 것
+    for (const year of years) {
+      let items: any[] = [];
+      try { items = await pagesOf(BRAND_URL, [['serviceKey', key], ['jngBizCrtraYr', year]], '가맹 브랜드 목록'); }
+      catch (e) { if (year === years[years.length - 1] && !map.size) throw e; continue; }
+      const seen = new Set<string>();
+      for (const x of items) {
         const mnno = s(x.jnghdqrtrsMnno); if (!mnno) continue;
-        const h = map.get(mnno) ?? { mnno, name: '', rep: s(x.jnghdqrtrsRprsvNm), brno: s(x.brno), brands: [], lcls: [], mcls: [], goods: [], start: '' };
+        let h = map.get(mnno);
+        if (h && h.year !== year) continue;           // 더 최신 해에서 이미 채움
+        if (!h) { h = { mnno, year, name: s(x.corpNm), rep: s(x.jnghdqrtrsRprsvNm), brno: s(x.brno), brands: [], lcls: [], mcls: [], goods: [], start: '', info: null }; map.set(mnno, h); }
+        seen.add(mnno);
         if (!h.name) h.name = s(x.corpNm);
-        const add = (arr: string[], v: string) => { if (v && !arr.includes(v)) arr.push(v); };
         add(h.brands, s(x.brandNm)); add(h.lcls, s(x.indutyLclasNm)); add(h.mcls, s(x.indutyMlsfcNm)); add(h.goods, s(x.majrGdsNm));
         const st = s(x.jngBizStrtDate); if (st && (!h.start || st < h.start)) h.start = st;
-        map.set(mnno, h);
       }
-      got += r.items.length;
-      if (!r.items.length || got >= r.total) break;
+    }
+    // 본부 상세(주소·연락처): 최신 해 우선
+    let dtl = false, dtlError = '';
+    for (const year of years) {
+      try {
+        const items = await pagesOf(DTL_URL, [['serviceKey', key], ['jngBizCrtraYr', year]], '가맹본부 일반정보');
+        for (const x of items) {
+          const mnno = s(x.jnghdqrtrsMnno); if (!mnno) continue;
+          let h = map.get(mnno);
+          if (!h) { h = { mnno, year, name: s(x.jnghdqrtrsConmNm), rep: s(x.jnghdqrtrsRprsvNm), brno: s(x.brno), brands: [], lcls: [], mcls: [], goods: [], start: '', info: null }; map.set(mnno, h); }
+          if (!h.info) h.info = x;                     // 앞(최신) 해가 먼저 들어감
+        }
+        dtl = true;
+      } catch (e) { dtlError = (e as Error).message; if ((e as ApiError).code === 'KEY') break; }
     }
     const hqs = [...map.values()];
-    if (!hqs.length) throw new ApiError(`${year}년 가맹 브랜드 목록이 비어 있습니다. 다른 기준년도를 고르거나 활용신청 승인 상태를 확인하세요.`, 'EMPTY');
-    brandCache.set(year, { at: Date.now(), hqs });
-    return hqs;
+    if (!hqs.length) throw new ApiError('가맹정보를 받아오지 못했습니다. 활용신청 승인 상태를 확인하세요.', 'EMPTY');
+    fcCache = { at: Date.now(), hqs, years, dtl, dtlError };
+    return fcCache;
   })();
-  brandLoading.set(year, job);
-  try { return await job; } finally { brandLoading.delete(year); }
+  try { return await fcLoading; } finally { fcLoading = null; }
 }
 
-async function histOf(year: string, mnno: string, key: string): Promise<any | null> {
-  const ck = `${year}:${mnno}`;
-  if (histCache.has(ck)) return histCache.get(ck);
-  const url = `${FC_URL}?` + qs([['serviceKey', key], ['pageNo', '1'], ['numOfRows', '100'], ['resultType', 'json'], ['jngBizCrtraYr', year], ['jnghdqrtrsMnno', mnno]]);
-  try {
-    const r = await portal(url, '가맹본부 변경이력');
-    const last = r.items.sort((a, b) => (parseInt(s(b.hstrSn)) || 0) - (parseInt(s(a.hstrSn)) || 0))[0] ?? null;
-    if (histCache.size > 20000) histCache.clear();
-    histCache.set(ck, last);
-    return last;
-  } catch (e) {
-    if ((e as ApiError).code === 'KEY') throw e;
-    return null;   // 한 곳 실패는 빈칸으로
+async function histOf(years: string[], mnno: string, key: string): Promise<any | null> {
+  for (const year of years) {
+    const ck = `${year}:${mnno}`;
+    if (!histCache.has(ck)) {
+      try {
+        const r = await portal(`${FC_URL}?` + qs([['serviceKey', key], ['pageNo', '1'], ['numOfRows', '100'], ['resultType', 'json'], ['jngBizCrtraYr', year], ['jnghdqrtrsMnno', mnno]]), '가맹본부 변경이력');
+        if (histCache.size > 20000) histCache.clear();
+        histCache.set(ck, r.items.sort((a, b) => (parseInt(s(b.hstrSn)) || 0) - (parseInt(s(a.hstrSn)) || 0))[0] ?? null);
+      } catch (e) { if ((e as ApiError).code === 'KEY') throw e; histCache.set(ck, null); }
+    }
+    const v = histCache.get(ck); if (v) return v;
   }
+  return null;
 }
 
-async function enrich(year: string, hqs: Hq[], key: string): Promise<Row[]> {
-  const out: Row[] = new Array(hqs.length); let i = 0;
+async function fillHist(c: NonNullable<typeof fcCache>, list: Hq[], key: string) {
+  const need = list.filter((h) => !h.info); let i = 0;
   await Promise.all(Array.from({ length: 10 }, async () => {
-    while (i < hqs.length) { const n = i++; out[n] = rowFc(hqs[n], await histOf(year, hqs[n].mnno, key)); }
+    while (i < need.length) { const h = need[i++]; h.info = await histOf(c.years, h.mnno, key); }
   }));
-  return out;
 }
 
-function rowFc(h: Hq, x: any | null): Row {
-  x = x ?? {};
-  const name = s(x.jnghdqrtrsConmNm) || h.name || h.brands[0] || h.mnno;
-  const addr = [s(x.lctnAddr), s(x.lctnDaddr)].filter(Boolean).join(' ');
+const okTel = (v: string) => { const d = v.replace(/\D/g, ''); return d.length >= 8 && d.length <= 12 && /^0[1-9]/.test(d) && !/^(\d)\1+$/.test(d.slice(1)) ? v : ''; };
+const addrOfHq = (h: Hq) => h.info ? [s(h.info.lctnAddr), s(h.info.lctnDaddr)].filter(Boolean).join(' ') : '';
+
+function rowFc(h: Hq): Row {
+  const x = h.info ?? {};
+  const name = s(x.jnghdqrtrsConmNm) || h.name || h.brands[0] || h.mnno, addr = addrOfHq(h);
+  const tel = okTel(s(x.jnghdqrtrsRprsTelno)), fax = okTel(s(x.jnghdqrtrsRprsFxno));
   const kind = s(x.indvdlCorpSeCd) === '11' ? '법인' : s(x.indvdlCorpSeCd) === '10' ? '개인' : '';
-  return { MNG_NO: `fc:${h.mnno}`, BPLC_NM: name, ROAD_NM_ADDR: addr,
-    TELNO: s(x.jnghdqrtrsRprsTelno), FAXNO: s(x.jnghdqrtrsRprsFxno), SGG: s(x.areaNm),
+  return { MNG_NO: `fc:${h.mnno}`, BPLC_NM: name, ROAD_NM_ADDR: addr, TELNO: tel, FAXNO: fax, SGG: s(x.areaNm),
     REP: s(x.jnghdqrtrsRprsvNm) || h.rep, BRANDS: h.brands.join(', '), INDUTY: h.mcls.join(', ') || h.lcls.join(', '),
     detail: [['브랜드', h.brands.join(', ')], ['업종', [...h.lcls, ...h.mcls].join(' · ')], ['주요상품', h.goods.join(', ')],
-      ['대표자', s(x.jnghdqrtrsRprsvNm) || h.rep], ['지역', s(x.areaNm)], ['주소', addr],
-      ['전화번호', s(x.jnghdqrtrsRprsTelno)], ['팩스번호', s(x.jnghdqrtrsRprsFxno)], ['사업자등록번호', s(x.brno) || h.brno],
-      ['개인·법인', kind], ['가맹사업개시일', h.start], ['브랜드 수', s(x.brandCnt)], ['계열회사 수', s(x.affltsCnt)],
-      ['기업규모', s(x.entScaleNm)], ['홈페이지', s(x.hmpgUrladr)], ['가맹본부관리번호', h.mnno]] };
+      ['대표자', s(x.jnghdqrtrsRprsvNm) || h.rep], ['지역', s(x.areaNm)], ['주소', addr], ['우편번호(구)', s(x.jnghdqrtrsOzip)],
+      ['전화번호', tel], ['팩스번호', fax], ['사업자등록번호', s(x.brno) || h.brno], ['개인·법인', kind],
+      ['가맹사업개시일', h.start], ['브랜드 수', s(x.brandCnt)], ['계열회사 수', s(x.affltsCnt)], ['기업규모', s(x.entScaleNm)],
+      ['홈페이지', s(x.hmpgUrladr)], ['가맹본부관리번호', h.mnno], ['정보 기준년도', s(x.jngBizCrtraYr) || h.year]] };
 }
 
 async function handleFc(q: URLSearchParams, key: string) {
-  const year = clean(q.get('year'), 4);
-  if (!/^\d{4}$/.test(year)) return json(400, { error: '기준년도(4자리)를 넣으세요.' });
-  let hqs: Hq[];
-  try { hqs = await brandLoad(year, key); }
+  let c: NonNullable<typeof fcCache>;
+  try { c = await fcLoad(key); }
   catch (e) { return json(502, { error: (e as Error).message, code: (e as ApiError).code ?? '' }); }
 
   const words = clean(q.get('q')).split(/\s+/).filter(Boolean), lcls = clean(q.get('lcls'), 30);
-  const hit = hqs.filter((h) => (!lcls || h.lcls.includes(lcls))
-    && words.every((w) => [h.name, h.rep, ...h.brands, ...h.mcls, ...h.goods].join(' ').includes(w)))
-    .sort((a, b) => (a.name || a.brands[0] || '').localeCompare(b.name || b.brands[0] || '', 'ko'));
-  const lclsList = [...hqs.reduce((m, h) => { h.lcls.forEach((c) => m.set(c, (m.get(c) ?? 0) + 1)); return m; }, new Map<string, number>())]
-    .sort((a, b) => b[1] - a[1]).map(([name, n]) => ({ name, n }));
-  const meta = { lcls: lclsList, all: hqs.length };
+  const addr = clean(q.get('addr')), area = clean(q.get('sgg'), 30), faxOnly = q.get('fax') === '1';
+  // 주소·지역·팩스 조건은 본부 상세(DTL)가 있을 때만 전체에 걸 수 있음
+  const byInfo = c.dtl;
+  const hit = c.hqs.filter((h) => (!lcls || h.lcls.includes(lcls))
+    && words.every((w) => [h.name, h.rep, s(h.info?.jnghdqrtrsConmNm), ...h.brands, ...h.mcls, ...h.goods].join(' ').includes(w))
+    && (!byInfo || ((!addr || addrOfHq(h).includes(addr)) && (!area || s(h.info?.areaNm) === area)
+      && (!faxOnly || !!okTel(s(h.info?.jnghdqrtrsRprsFxno))))))
+    .sort((a, b) => (s(a.info?.jnghdqrtrsConmNm) || a.name || a.brands[0] || '').localeCompare(s(b.info?.jnghdqrtrsConmNm) || b.name || b.brands[0] || '', 'ko'));
+
+  const count = (f: (h: Hq) => string[]) => [...c.hqs.reduce((m, h) => { f(h).forEach((v) => v && m.set(v, (m.get(v) ?? 0) + 1)); return m; }, new Map<string, number>())];
+  const meta = {
+    lcls: count((h) => h.lcls).sort((a, b) => b[1] - a[1]).map(([name, n]) => ({ name, n })),
+    sggs: byInfo ? count((h) => [s(h.info?.areaNm)]).sort((a, b) => a[0].localeCompare(b[0], 'ko')).map(([name, n]) => ({ name, n })) : [],
+    all: c.hqs.length, withFax: byInfo ? c.hqs.filter((h) => okTel(s(h.info?.jnghdqrtrsRprsFxno))).length : null,
+    years: c.years, dtl: c.dtl, dtlError: c.dtl ? '' : c.dtlError,
+    note: !byInfo && (addr || area || faxOnly) ? '가맹본부 일반정보 상세 API 활용 승인 전이라 주소·지역·팩스 조건은 아직 적용되지 않았습니다.' : '',
+  };
   try {
     if (q.get('all') === '1') {
-      const cap = 500, rows = await enrich(year, hit.slice(0, cap), key);
-      const items = q.get('fax') === '1' ? rows.filter((r) => r.FAXNO.replace(/\D/g, '').length >= 8) : rows;
+      const cap = byInfo ? 5000 : 500, list = hit.slice(0, cap);
+      await fillHist(c, list, key);
+      const rows = list.map(rowFc), items = faxOnly ? rows.filter((r) => r.FAXNO) : rows;
       return json(200, { ...meta, totalCount: items.length, items, cut: hit.length > cap ? hit.length : 0 });
     }
     const per = Math.min(100, Math.max(1, parseInt(q.get('numOfRows') ?? '50', 10) || 50));
     const page = Math.max(1, parseInt(q.get('pageNo') ?? '1', 10) || 1);
-    const items = await enrich(year, hit.slice((page - 1) * per, page * per), key);
-    return json(200, { ...meta, totalCount: hit.length, pageNo: page, numOfRows: per, items });
+    const list = hit.slice((page - 1) * per, page * per);
+    await fillHist(c, list, key);
+    return json(200, { ...meta, totalCount: hit.length, pageNo: page, numOfRows: per, items: list.map(rowFc) });
   } catch (e) {
     return json(502, { error: (e as Error).message, code: (e as ApiError).code ?? '' });
   }
@@ -244,10 +288,11 @@ async function handleFc(q: URLSearchParams, key: string) {
 // 점검용: 원본 응답 앞부분 (비밀번호 필요)
 async function handleRaw(q: URLSearchParams, key: string) {
   const src = q.get('src') ?? '', year = clean(q.get('year'), 4) || String(new Date().getFullYear() - 1);
-  const url = src === 'brand' ? `${BRAND_URL}?` + qs([['serviceKey', key], ['pageNo', '1'], ['numOfRows', '2'], ['resultType', 'json'], ['jngBizCrtraYr', year]])
+  const url = src === 'dtl' ? `${DTL_URL}?` + qs([['serviceKey', key], ['pageNo', '1'], ['numOfRows', '2'], ['resultType', 'json'], ['jngBizCrtraYr', year]])
+    : src === 'brand' ? `${BRAND_URL}?` + qs([['serviceKey', key], ['pageNo', '1'], ['numOfRows', '2'], ['resultType', 'json'], ['jngBizCrtraYr', year]])
     : src === 'fc' ? `${FC_URL}?` + qs([['serviceKey', key], ['pageNo', '1'], ['numOfRows', '2'], ['resultType', 'json'], ['jngBizCrtraYr', year], ['jnghdqrtrsMnno', clean(q.get('mnno'), 30)]])
     : GN[src] ? `${GN[src].url}?` + qs([['ServiceKey', key], ['pageNo', '1'], ['numOfRows', '2'], ['resultType', 'json']]) : '';
-  if (!url) return json(400, { error: 'src=mfr|senior|brand|fc' });
+  if (!url) return json(400, { error: 'src=mfr|senior|brand|fc|dtl' });
   const r = await fetch(url, { headers: { Accept: 'application/json' } });
   return json(200, { status: r.status, text: (await r.text()).slice(0, 1500) });
 }

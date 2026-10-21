@@ -147,18 +147,17 @@ textarea{min-height:84px;resize:vertical}
           </div>
         </div>
         <div class="gn"><label class="lb" for="fQ" id="fQLabel">이름·업종·생산품에 포함</label><input id="fQ" placeholder="식품, 참기름, 기계"></div>
-        <div class="gn"><label class="lb" for="fAddr">주소에 포함</label><input id="fAddr" placeholder="마산회원구, 진주"></div>
-        <div class="gn"><label class="lb" for="fSgg">시·군</label><select id="fSgg"><option value="">전체</option></select></div>
-        <div class="gn">
+        <div><label class="lb" for="fAddr">주소에 포함</label><input id="fAddr" placeholder="마산회원구, 진주"></div>
+        <div><label class="lb" for="fSgg" id="fSggLabel">시·군</label><select id="fSgg"><option value="">전체</option></select></div>
+        <div>
           <label class="lb">팩스번호</label>
           <label class="hint" style="display:flex;gap:6px;align-items:center;padding:9px 0"><input id="fFaxOnly" type="checkbox" checked style="width:auto"> 팩스번호 있는 곳만</label>
         </div>
         <div class="fc" hidden><label class="lb" for="fFq">브랜드·본부명·업종·상품에 포함</label><input id="fFq" placeholder="치킨, 떡, 반찬, 본죽"></div>
         <div class="fc" hidden><label class="lb" for="fLcls">업종 대분류</label><select id="fLcls"><option value="">전체</option></select></div>
-        <div class="fc" hidden><label class="lb" for="fYear">가맹사업 기준년도</label><input id="fYear" inputmode="numeric" maxlength="4" class="mono"></div>
         <div class="row"><button class="btn primary" type="submit" id="searchBtn" style="flex:1;justify-content:center">조회</button><button class="btn" type="button" id="resetBtn">초기화</button></div>
         <p class="hint full gn" id="gnNote" style="margin:0"></p>
-        <p class="hint full fc" hidden style="margin:0"><span id="fcNote"></span> 공정거래위원회 가맹정보입니다. 브랜드 목록으로 가맹본부를 찾고, 화면에 보이는 본부마다 일반정보 최신 이력에서 전화·팩스·주소를 가져옵니다. 한 쪽에 몇 초 걸릴 수 있습니다.</p>
+        <p class="hint full fc" hidden style="margin:0"><span id="fcNote"></span> 공정거래위원회 가맹정보(브랜드 목록 + 가맹본부 일반정보)입니다. 처음 조회는 전체를 받느라 30초쯤 걸리고, 이후 12시간은 빠릅니다.</p>
         <div id="err" class="err full" hidden></div>
       </form>
 
@@ -274,7 +273,7 @@ async function api(p){
   return j;
 }
 function params(page){
-  if(state.type==='fc') return { op:'fc', year:$('fYear').value.trim(), q:$('fFq').value, lcls:$('fLcls').value, pageNo:page, numOfRows:$('perPage').value };
+  if(state.type==='fc') return { op:'fc', q:$('fFq').value, lcls:$('fLcls').value, addr:$('fAddr').value, sgg:$('fSgg').value, fax:$('fFaxOnly').checked?'1':'', pageNo:page, numOfRows:$('perPage').value };
   return { op:'gn', src:state.type, q:$('fQ').value, addr:$('fAddr').value, sgg:$('fSgg').value, fax:$('fFaxOnly').checked?'1':'', pageNo:page, numOfRows:$('perPage').value };
 }
 function fillSgg(list){
@@ -282,7 +281,7 @@ function fillSgg(list){
   $('fSgg').innerHTML=opt('','전체')+(list||[]).map(x=>opt(x.name,`${x.name} (${x.n.toLocaleString()})`,x.name===cur)).join('');
 }
 async function search(page=1){
-  const b=$('searchBtn'); b.disabled=true; b.textContent=state.type==='fc'?'조회 중…':'불러오는 중… (처음엔 10초쯤)'; $('err').hidden=true;
+  const b=$('searchBtn'); b.disabled=true; b.textContent=state.type==='fc'?'불러오는 중… (처음엔 30초쯤)':'불러오는 중… (처음엔 10초쯤)'; $('err').hidden=true;
   const type=state.type;
   try{
     const p=params(page); const j=await api(p);
@@ -290,7 +289,10 @@ async function search(page=1){
     Object.assign(state,{page, total:j.totalCount||0, items:j.items||[], last:p});
     if(type==='fc'){
       if(j.lcls && $('fLcls').options.length<=1) $('fLcls').innerHTML=opt('','전체')+j.lcls.map(x=>opt(x.name,`${x.name} (${x.n.toLocaleString()})`)).join('');
-      $('fcNote').textContent=`${$('fYear').value}년 가맹본부 ${Number(j.all||0).toLocaleString()}곳.`;
+      if(j.sggs && j.sggs.length && $('fSgg').options.length<=1) fillSgg(j.sggs);
+      const ys=(j.years||[]).join('·');
+      $('fcNote').textContent=`${ys}년 정보를 합친 가맹본부 ${Number(j.all||0).toLocaleString()}곳`+(j.withFax!=null?` (팩스번호 있는 곳 ${Number(j.withFax).toLocaleString()}곳)`:'')+'. 본부마다 가장 최근 해의 주소·연락처를 씁니다.'
+        +(j.dtl?'':' ⚠ 가맹본부 일반정보 상세 API가 아직 승인 전이라, 주소·지역·팩스 조건은 승인 후에 적용됩니다.');
     } else {
       if(j.sggs && $('fSgg').options.length<=1) fillSgg(j.sggs);
       $('gnNote').textContent=`${TYPE_NAME[type]} 전체 ${Number(j.all||0).toLocaleString()}곳 중 팩스번호가 있는 곳 ${Number(j.withFax||0).toLocaleString()}곳. 경상남도가 실시간 제공하는 자료를 서버가 받아 두고 6시간마다 새로 받습니다.`;
@@ -311,7 +313,7 @@ const telTd=v=>`<td class="mono">${esc(realTel(v))}</td>`;
 function renderRows(errMsg){
   const nc=renderHead();
   $('total').textContent=state.total.toLocaleString();
-  $('totalWhat').textContent=`건 · ${TYPE_NAME[state.type]}`+(state.type!=='fc'&&$('fFaxOnly').checked?' · 팩스번호 있는 곳':'');
+  $('totalWhat').textContent=`건 · ${TYPE_NAME[state.type]}`+($('fFaxOnly').checked?' · 팩스번호 있는 곳':'');
   $('scanNote').hidden=true;
   if(!state.items.length){ $('rows').innerHTML=`<tr><td colspan="${nc}" class="empty">${errMsg?'조회하지 못했습니다. 왼쪽 안내를 확인하세요.':'조건에 맞는 곳이 없습니다. 조건을 넓히거나 검색어를 줄여 보세요.'}</td></tr>`; $('pager').innerHTML=''; return; }
   const star=it=>`<td class="st">${leads[it.MNG_NO]?'★':''}</td>`;
@@ -415,7 +417,7 @@ const stamp=()=>iso(new Date());
 // 지금 조건의 전체 결과 (경남: 서버에서 한 번에 / 가맹본부: 페이지를 넘겨 최대 2000건)
 async function fetchAll(b,label){
   if(!state.last) throw new Error('먼저 조회하세요');
-  if(state.type==='fc') b.textContent=`본부 연락처 확인 중 (최대 500곳, 1분쯤)…`;
+  if(state.type==='fc') b.textContent='받는 중…';
   const j=await api({...state.last,all:'1'});
   if(j.cut) toast(`${j.cut.toLocaleString()}곳 중 앞 500곳만 받았습니다. 검색어·업종으로 좁혀 보세요`);
   return j.items;
@@ -449,6 +451,8 @@ function setType(t){
   state.type=t; const fc=t==='fc';
   document.querySelectorAll('.gn').forEach(e=>e.hidden=fc);
   document.querySelectorAll('.fc').forEach(e=>e.hidden=!fc);
+  $('fSggLabel').textContent=fc?'지역(시·도)':'시·군';
+  $('fAddr').placeholder=fc?'강남구, 창원, 부산':'마산회원구, 진주';
   $('fQLabel').textContent=t==='mfr'?'이름·업종·생산품에 포함':'기관명·대표자에 포함';
   $('fQ').placeholder=t==='mfr'?'식품, 참기름, 기계':'요양원, 주야간보호';
   $('fSgg').innerHTML=opt('','전체'); $('fLcls').innerHTML=opt('','전체'); $('gnNote').textContent=''; $('fcNote').textContent='';
@@ -465,9 +469,9 @@ $('tabSearch').onclick=()=>showTab('search'); $('tabLeads').onclick=()=>showTab(
 document.querySelectorAll('#typeSeg button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#typeSeg button').forEach(x=>x.classList.toggle('on',x===b)); setType(b.dataset.v); search(1);
 });
-$('fSgg').onchange=()=>search(1); $('fLcls').onchange=()=>search(1); $('fYear').onchange=()=>{ $('fLcls').innerHTML=opt('','전체'); search(1); }; $('fFaxOnly').onchange=()=>search(1);
+$('fSgg').onchange=()=>search(1); $('fLcls').onchange=()=>search(1); $('fFaxOnly').onchange=()=>search(1);
 $('filterForm').onsubmit=e=>{ e.preventDefault(); search(1); };
-$('resetBtn').onclick=()=>{ ['fQ','fAddr','fFq'].forEach(i=>$(i).value=''); $('fSgg').value=''; $('fLcls').value=''; $('fFaxOnly').checked=true; $('fYear').value=new Date().getFullYear()-1; search(1); };
+$('resetBtn').onclick=()=>{ ['fQ','fAddr','fFq'].forEach(i=>$(i).value=''); $('fSgg').value=''; $('fLcls').value=''; $('fFaxOnly').checked=true; search(1); };
 $('perPage').onchange=()=>search(1);
 $('rows').onclick=e=>{ const tr=e.target.closest('tr[data-i]'); if(tr) openDrawer(state.items[+tr.dataset.i],state.type); };
 $('pager').onclick=e=>{ const b=e.target.closest('[data-go]'); if(b&&!b.disabled) search(+b.dataset.go); };
@@ -475,7 +479,6 @@ function showLogin(msg){ $('searchView').hidden=true; $('leadsView').hidden=true
 $('loginForm').onsubmit=e=>{ e.preventDefault(); PW=$('pwInput').value; try{localStorage.setItem('fbf_pw',PW);}catch(_){}
   $('loginView').hidden=true; showTab('search'); search(1); };
 
-$('fYear').value=new Date().getFullYear()-1;
 (()=>{ let t='mfr'; try{ t=localStorage.getItem('fbf_type')||'mfr'; }catch(e){}
   if(!TYPE_NAME[t]) t='mfr';
   document.querySelectorAll('#typeSeg button').forEach(x=>x.classList.toggle('on',x.dataset.v===t)); setType(t); search(1);

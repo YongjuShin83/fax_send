@@ -11,10 +11,11 @@
 |---|---|---|
 | 경상남도_제조업체 | `apis.data.go.kr/6480000/gyeongnammanufacturer/gyeongnammanufacturerList` | 회사명·업종·생산품·전화·**팩스**. 검색 조건이 없어 서버가 전체를 받아 6시간 보관하며 거름 |
 | 경상남도_노인복지시설 | `apis.data.go.kr/6480000/gyeongnamseniorwelfare/gyeongnamseniorwelfareList` | 기관명·시군구·전화·**팩스**. 위와 같은 방식 |
+| 공정거래위원회_가맹정보_가맹본부 일반 정보 상세 | `apis.data.go.kr/1130000/FftcJnghdqrtrsGnrlDtl3_Service/getjnghdqrtrsGnlinfo2` | 기준년도 전체 본부 + 주소·대표 전화·**팩스** (관리번호 없이 목록). 주소·지역·팩스 검색에 사용 |
 | 공정거래위원회_가맹정보_브랜드 목록 정보 | `apis.data.go.kr/1130000/FftcBrandRlsInfo2_Service/getBrandinfo` | 기준년도 전체 브랜드 → 가맹본부별로 묶어 브랜드·본부명·업종·상품으로 검색 (12시간 보관) |
 | 공정거래위원회_가맹정보_가맹본부 일반 정보 변경 이력현황 | `apis.data.go.kr/1130000/FftcjnghdqrtrsInfoChghst2_Service/getjnghdqrtrsGnlHist` | 기준년도+관리번호 필수. 화면에 보이는 본부마다 최신 이력에서 대표 전화·**팩스**·주소를 채움 |
 
-서버 요청: `op=gn&src=mfr|senior` (q, addr, sgg, fax=1, pageNo, numOfRows, all=1) · `op=fc` (year, q, lcls, pageNo, numOfRows, all=1&fax=1) · `op=raw&src=mfr|senior|brand|fc` (원본 응답 점검) · `op=fax*`
+서버 요청: `op=gn&src=mfr|senior` (q, addr, sgg, fax=1, pageNo, numOfRows, all=1) · `op=fc` (올해+작년 합쳐 최신 · q, lcls, addr, sgg, fax=1, pageNo, numOfRows, all=1) · `op=raw&src=mfr|senior|brand|fc|dtl` (원본 응답 점검) · `op=fax*`
 
 ## Supabase 시크릿
 
